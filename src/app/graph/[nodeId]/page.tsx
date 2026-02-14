@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Edit, Trash2, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { AttachSpecDialog } from "@/components/specs/AttachSpecDialog";
+import type { NodeType } from "@/lib/types/graph";
 
 export default function NodeDetailPage({
   params,
@@ -21,7 +23,7 @@ export default function NodeDetailPage({
   const router = useRouter();
   const { data: node, error } = useNode(nodeId);
   const { data: rels, mutate: mutateRels } = useNodeRelationships(nodeId);
-  const { data: specs } = useNodeSpecs(nodeId);
+  const { data: specs, mutate: mutateSpecs } = useNodeSpecs(nodeId);
   const { data: history } = useNodeHistory(nodeId);
 
   const handleDelete = async () => {
@@ -84,6 +86,14 @@ export default function NodeDetailPage({
           <CardTitle className="text-base">
             Attached Specs ({(specs || []).length})
           </CardTitle>
+          {nodeData.nodeType !== "SpecDocument" ? (
+            <AttachSpecDialog
+              nodeId={nodeId}
+              nodeType={nodeData.nodeType as NodeType}
+              nodeName={nodeData.name as string}
+              onCreated={() => mutateSpecs()}
+            />
+          ) : null}
         </CardHeader>
         <CardContent>
           {(specs || []).length === 0 ? (

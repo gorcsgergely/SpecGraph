@@ -27,10 +27,13 @@ export const VALIDATION_RULES: ValidationRule[] = [
   {
     id: "api_no_openapi",
     severity: "warning",
-    description: "API without OpenAPI spec",
+    description: "API without API spec",
     cypher: `
       MATCH (n:API) WHERE n.valid_to IS NULL
-      AND NOT (n)-[:SPECIFIED_BY]->(:SpecDocument {spec_type: 'openapi', valid_to: null})
+      AND NOT EXISTS {
+        MATCH (n)-[:SPECIFIED_BY]->(s:SpecDocument)
+        WHERE s.valid_to IS NULL AND s.spec_type IN ['openapi', 'api_internal', 'api_external']
+      }
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
   {
@@ -39,7 +42,9 @@ export const VALIDATION_RULES: ValidationRule[] = [
     description: "Capability with no realizing service",
     cypher: `
       MATCH (n:BusinessCapability) WHERE n.valid_to IS NULL
-      AND NOT (:BusinessService {valid_to: null})-[:REALIZES]->(n)
+      AND NOT EXISTS {
+        MATCH (:BusinessService)-[:REALIZES]->(n)
+      }
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
   {
@@ -48,7 +53,9 @@ export const VALIDATION_RULES: ValidationRule[] = [
     description: "Service with no realizing application",
     cypher: `
       MATCH (n:BusinessService) WHERE n.valid_to IS NULL
-      AND NOT (:Application {valid_to: null})-[:REALIZES]->(n)
+      AND NOT EXISTS {
+        MATCH (:Application)-[:REALIZES]->(n)
+      }
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
   {
@@ -57,16 +64,21 @@ export const VALIDATION_RULES: ValidationRule[] = [
     description: "Process with no steps",
     cypher: `
       MATCH (n:BusinessProcess) WHERE n.valid_to IS NULL
-      AND NOT (n)-[:COMPOSES]->(:ProcessStep {valid_to: null})
+      AND NOT EXISTS {
+        MATCH (n)-[:COMPOSES]->(:ProcessStep)
+      }
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
   {
     id: "data_no_erd",
     severity: "warning",
-    description: "DataEntity without ERD spec",
+    description: "DataEntity without data spec",
     cypher: `
       MATCH (n:DataEntity) WHERE n.valid_to IS NULL
-      AND NOT (n)-[:SPECIFIED_BY]->(:SpecDocument {spec_type: 'erd', valid_to: null})
+      AND NOT EXISTS {
+        MATCH (n)-[:SPECIFIED_BY]->(s:SpecDocument)
+        WHERE s.valid_to IS NULL AND s.spec_type IN ['erd', 'data_model']
+      }
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
   {

@@ -160,6 +160,16 @@ export const SpecTypeEnum = z.enum([
   "test_spec",
   "design_doc",
   "implementation_spec",
+  "compliance_security",
+  "architecture",
+  "data_model",
+  "state_management",
+  "workflow",
+  "api_internal",
+  "api_external",
+  "ui_spec",
+  "business_rules",
+  "deployment",
 ]);
 
 export const SpecFormatEnum = z.enum(["markdown", "yaml", "json", "mermaid"]);

@@ -1,0 +1,72 @@
+import type { NodeType } from "@/lib/types/graph";
+
+import { metadata as complianceSecurityMeta, content as complianceSecurityContent } from "./compliance-security";
+import { metadata as architectureMeta, content as architectureContent } from "./architecture";
+import { metadata as dataModelMeta, content as dataModelContent } from "./data-model";
+import { metadata as stateManagementMeta, content as stateManagementContent } from "./state-management";
+import { metadata as workflowMeta, content as workflowContent } from "./workflow";
+import { metadata as apiInternalMeta, content as apiInternalContent } from "./api-internal";
+import { metadata as apiExternalMeta, content as apiExternalContent } from "./api-external";
+import { metadata as uiSpecMeta, content as uiSpecContent } from "./ui-spec";
+import { metadata as businessRulesMeta, content as businessRulesContent } from "./business-rules";
+import { metadata as deploymentMeta, content as deploymentContent } from "./deployment";
+
+export interface TemplateInfo {
+  name: string;
+  description: string;
+  suggestedFormat: "markdown" | "yaml" | "json" | "mermaid";
+  content: string;
+}
+
+export const SPEC_TEMPLATES: Record<string, TemplateInfo> = {
+  compliance_security: { ...complianceSecurityMeta, content: complianceSecurityContent },
+  architecture: { ...architectureMeta, content: architectureContent },
+  data_model: { ...dataModelMeta, content: dataModelContent },
+  state_management: { ...stateManagementMeta, content: stateManagementContent },
+  workflow: { ...workflowMeta, content: workflowContent },
+  api_internal: { ...apiInternalMeta, content: apiInternalContent },
+  api_external: { ...apiExternalMeta, content: apiExternalContent },
+  ui_spec: { ...uiSpecMeta, content: uiSpecContent },
+  business_rules: { ...businessRulesMeta, content: businessRulesContent },
+  deployment: { ...deploymentMeta, content: deploymentContent },
+};
+
+export function getTemplateContent(specType: string): string | null {
+  return SPEC_TEMPLATES[specType]?.content ?? null;
+}
+
+export type TemplateSuggestion = {
+  specType: string;
+  name: string;
+  description: string;
+};
+
+const TEMPLATE_SUGGESTIONS: Partial<Record<NodeType, string[]>> = {
+  BusinessCapability: ["compliance_security", "business_rules"],
+  BusinessService: ["workflow", "compliance_security"],
+  BusinessProcess: ["workflow", "state_management", "business_rules"],
+  ProcessStep: ["workflow", "ui_spec"],
+  DataEntity: ["data_model", "compliance_security"],
+  Application: ["architecture", "deployment"],
+  ApplicationComponent: ["architecture", "api_internal"],
+  API: ["api_internal", "api_external"],
+};
+
+export function getSuggestedTemplates(nodeType: NodeType): TemplateSuggestion[] {
+  const specTypes = TEMPLATE_SUGGESTIONS[nodeType] || [];
+  return specTypes
+    .filter((st) => SPEC_TEMPLATES[st])
+    .map((st) => ({
+      specType: st,
+      name: SPEC_TEMPLATES[st].name,
+      description: SPEC_TEMPLATES[st].description,
+    }));
+}
+
+export function getAllTemplates(): TemplateSuggestion[] {
+  return Object.entries(SPEC_TEMPLATES).map(([specType, info]) => ({
+    specType,
+    name: info.name,
+    description: info.description,
+  }));
+}

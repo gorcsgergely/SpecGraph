@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { NodeType } from "@/lib/types/graph";
+import { getTemplateContent, SPEC_TEMPLATES } from "@/lib/templates";
 
 const NODE_TYPES: NodeType[] = [
   "BusinessCapability",
@@ -104,7 +105,7 @@ const TYPE_FIELDS: Record<string, Array<{ name: string; type: "text" | "textarea
     { name: "example_response", type: "textarea", label: "Example Response" },
   ],
   SpecDocument: [
-    { name: "spec_type", type: "select", label: "Spec Type", options: ["openapi", "erd", "sequence", "test_spec", "design_doc", "implementation_spec"] },
+    { name: "spec_type", type: "select", label: "Spec Type", options: ["openapi", "erd", "sequence", "test_spec", "design_doc", "implementation_spec", "compliance_security", "architecture", "data_model", "state_management", "workflow", "api_internal", "api_external", "ui_spec", "business_rules", "deployment"] },
     { name: "format", type: "select", label: "Format", options: ["markdown", "yaml", "json", "mermaid"] },
     { name: "content", type: "textarea", label: "Content" },
   ],
@@ -138,6 +139,28 @@ export function NodeForm({ initialData, nodeId, onSuccess }: NodeFormProps) {
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: (initialData as Record<string, string | number | boolean>) || {},
   });
+
+  const isCreate = !nodeId;
+  const specType = watch("spec_type") as string | undefined;
+  const hasAutoFilled = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isCreate || !specType || nodeType !== "SpecDocument") return;
+    if (hasAutoFilled.current.has(specType)) return;
+
+    const template = getTemplateContent(specType);
+    if (template) {
+      const currentContent = watch("content") as string | undefined;
+      if (!currentContent) {
+        setValue("content", template);
+        const meta = SPEC_TEMPLATES[specType];
+        if (meta?.suggestedFormat) {
+          setValue("format", meta.suggestedFormat);
+        }
+        hasAutoFilled.current.add(specType);
+      }
+    }
+  }, [specType, isCreate, nodeType, setValue, watch]);
 
   const fields = TYPE_FIELDS[nodeType] || [];
 
