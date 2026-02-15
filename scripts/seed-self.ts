@@ -107,7 +107,7 @@ async function seed() {
       level: 1,
       domain: "Architecture Governance",
       owner: "Platform Team",
-      acceptance_criteria: "Specs can be created from 14 types (including 13 templates), edited in Monaco editor, previewed with Mermaid, and attached to any node type",
+      acceptance_criteria: "Specs can be created from 15 types (all with templates), edited in Monaco editor, previewed with Mermaid, and attached to any node type",
       business_rules: "Specs attached via SPECIFIED_BY, TESTED_BY, or IMPLEMENTED_BY relationships; template auto-fill on create for template types",
       regulatory_refs: [],
       tags: ["specs", "templates", "authoring"],
@@ -316,14 +316,14 @@ async function seed() {
 
     const specDocEntity = makeNode("DataEntity", "business", {
       name: "Spec Document",
-      description: "Specification document stored as a SpecDocument node with content in markdown/yaml/json/mermaid format, one of 14 spec types",
+      description: "Specification document stored as a SpecDocument node with content in markdown/yaml/json/mermaid format, one of 15 spec types",
       entity_type: "transactional",
       sensitivity: "internal",
       pii: false,
       retention_policy: "Indefinite — versioned like all nodes",
-      schema_summary: "id, name, description, spec_type (14 values), format (markdown/yaml/json/mermaid), content (string), content_hash, plus base node fields",
+      schema_summary: "id, name, description, spec_type (15 values), format (markdown/yaml/json/mermaid), content (string), content_hash, plus base node fields",
       validation_rules: "spec_type must be valid enum; format must be valid enum; content is free-form string",
-      code_hints: "Neo4j node with label SpecDocument; 13 template types auto-fill from src/lib/templates/",
+      code_hints: "Neo4j node with label SpecDocument; 15 template types auto-fill from src/lib/templates/",
       tags: ["spec", "document", "content"],
     });
 
@@ -419,15 +419,15 @@ async function seed() {
 
     const templateRegistry = makeNode("ApplicationComponent", "application", {
       name: "Template Registry",
-      description: "Registry of 13 specification templates with structured markdown content, metadata, and node-type-based suggestions",
+      description: "Registry of 15 specification templates with structured markdown content, metadata, and node-type-based suggestions",
       component_type: "library",
       language: "TypeScript",
       package_path: "src/lib/templates",
       repo_path: "src/lib/templates",
-      interface_spec: "index.ts exports SPEC_TEMPLATES map, getTemplateContent(), getSuggestedTemplates(), getAllTemplates(); 13 template modules export content + metadata",
-      code_hints: "Templates: compliance_security, architecture, data_model, state_management, workflow, api_internal, api_external, ui_spec, business_rules, deployment, openapi, sequence, implementation_spec",
+      interface_spec: "index.ts exports SPEC_TEMPLATES map, getTemplateContent(), getSuggestedTemplates(), getAllTemplates(); 15 template modules export content + metadata",
+      code_hints: "Templates: compliance_security, architecture, data_model, state_management, workflow, api_internal, api_external, ui_spec, business_rules, business_requirements, deployment, openapi, sequence, implementation_spec, test_spec",
       dependencies_notes: "Pure TypeScript — no external dependencies",
-      acceptance_criteria: "All 13 templates load correctly; suggestions match node types; content is valid markdown with Mermaid blocks",
+      acceptance_criteria: "All 15 templates load correctly; suggestions match node types; content is valid markdown with Mermaid blocks",
       tags: ["templates", "registry", "specs"],
     });
 
@@ -724,7 +724,7 @@ All nodes and relationships carry \`valid_from\` and \`valid_to\` timestamps:
 
 | Label | Additional Properties |
 |-------|---------------------|
-| SpecDocument | spec_type (14 values), format (markdown/yaml/json/mermaid), content, content_hash |
+| SpecDocument | spec_type (15 values), format (markdown/yaml/json/mermaid), content, content_hash |
 
 ## 3. Relationship Types
 
@@ -1630,7 +1630,7 @@ BaseNodeSchema.extend({
 BaseNodeSchema.extend({
   nodeType: z.literal("SpecDocument"),
   layer: z.literal("spec"),
-  spec_type: SpecTypeEnum,    // 14 values: openapi, sequence, ...
+  spec_type: SpecTypeEnum,    // 15 values: openapi, sequence, ...
   format: SpecFormatEnum,      // markdown, yaml, json, mermaid
   content: z.string().default(""),
   content_hash: z.string().default(""),
@@ -1837,7 +1837,7 @@ Used by GraphExplorer for node rendering colors.
 | FR-005 | The system shall support full-text search across node names and descriptions | Should | Architects need to quickly find nodes in large graphs | Active |
 | FR-006 | The system shall export subgraphs as structured markdown for AI agent consumption | Should | AI coding agents need architecture context to generate correct implementations | Active |
 | FR-007 | The system shall run advisory validation rules to detect quality issues | Should | Proactive quality checks reduce architectural debt | Active |
-| FR-008 | The system shall support 14+ specification templates with auto-fill | Could | Templates accelerate spec authoring and ensure consistency | Active |
+| FR-008 | The system shall support 15 specification templates with auto-fill | Could | Templates accelerate spec authoring and ensure consistency | Active |
 
 ## 3. Non-Functional Requirements
 

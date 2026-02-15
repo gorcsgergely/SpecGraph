@@ -56,7 +56,7 @@ const TEMPLATE_SUGGESTIONS: Partial<Record<NodeType, string[]>> = {
   BusinessService: ["business_requirements", "workflow", "compliance_security"],
   BusinessProcess: ["workflow", "state_management", "business_rules", "test_spec"],
   ProcessStep: ["workflow", "ui_spec", "business_rules"],
-  DataEntity: ["data_model", "compliance_security"],
+  DataEntity: ["data_model", "compliance_security", "implementation_spec"],
   Application: ["architecture", "deployment", "compliance_security", "test_spec"],
   ApplicationComponent: ["architecture", "api_internal", "implementation_spec", "test_spec"],
   API: ["api_internal", "api_external", "openapi", "test_spec"],
