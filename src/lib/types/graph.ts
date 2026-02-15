@@ -165,6 +165,7 @@ export const SpecTypeEnum = z.enum([
   "api_external",
   "ui_spec",
   "business_rules",
+  "business_requirements",
   "deployment",
 ]);
 

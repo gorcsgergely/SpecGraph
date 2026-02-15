@@ -9,6 +9,7 @@ import { metadata as apiInternalMeta, content as apiInternalContent } from "./ap
 import { metadata as apiExternalMeta, content as apiExternalContent } from "./api-external";
 import { metadata as uiSpecMeta, content as uiSpecContent } from "./ui-spec";
 import { metadata as businessRulesMeta, content as businessRulesContent } from "./business-rules";
+import { metadata as businessRequirementsMeta, content as businessRequirementsContent } from "./business-requirements";
 import { metadata as deploymentMeta, content as deploymentContent } from "./deployment";
 import { metadata as openapiMeta, content as openapiContent } from "./openapi";
 import { metadata as sequenceMeta, content as sequenceContent } from "./sequence";
@@ -31,6 +32,7 @@ export const SPEC_TEMPLATES: Record<string, TemplateInfo> = {
   api_external: { ...apiExternalMeta, content: apiExternalContent },
   ui_spec: { ...uiSpecMeta, content: uiSpecContent },
   business_rules: { ...businessRulesMeta, content: businessRulesContent },
+  business_requirements: { ...businessRequirementsMeta, content: businessRequirementsContent },
   deployment: { ...deploymentMeta, content: deploymentContent },
   openapi: { ...openapiMeta, content: openapiContent },
   sequence: { ...sequenceMeta, content: sequenceContent },
@@ -48,8 +50,8 @@ export type TemplateSuggestion = {
 };
 
 const TEMPLATE_SUGGESTIONS: Partial<Record<NodeType, string[]>> = {
-  BusinessCapability: ["compliance_security", "business_rules"],
-  BusinessService: ["workflow", "compliance_security"],
+  BusinessCapability: ["business_requirements", "compliance_security", "business_rules"],
+  BusinessService: ["business_requirements", "workflow", "compliance_security"],
   BusinessProcess: ["workflow", "state_management", "business_rules"],
   ProcessStep: ["workflow", "ui_spec", "business_rules"],
   DataEntity: ["data_model", "compliance_security"],

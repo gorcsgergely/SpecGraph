@@ -75,7 +75,7 @@ async function seed() {
     // ══════════════════════════════════════════════════════════════════════════
     console.log("Creating business layer...");
 
-    // ── L1 Capabilities ──
+    // ── Capabilities (L1, grouped by domain) ──
 
     const archMgmt = makeNode("BusinessCapability", "business", {
       name: "Enterprise Architecture Management",
@@ -89,12 +89,10 @@ async function seed() {
       tags: ["architecture", "governance", "core"],
     });
 
-    // ── L2 Capabilities ──
-
     const graphModeling = makeNode("BusinessCapability", "business", {
       name: "Knowledge Graph Modeling",
       description: "Capability to create, read, update, and soft-delete nodes and relationships in a typed knowledge graph with 9 node types and 10 relationship types",
-      level: 2,
+      level: 1,
       domain: "Architecture Governance",
       owner: "Platform Team",
       acceptance_criteria: "All 9 node types can be CRUD-managed; relationships validated against type matrix; copy-on-write versioning on updates",
@@ -106,7 +104,7 @@ async function seed() {
     const specMgmt = makeNode("BusinessCapability", "business", {
       name: "Specification Management",
       description: "Capability to author, attach, and preview structured specification documents with template support and Mermaid diagram rendering",
-      level: 2,
+      level: 1,
       domain: "Architecture Governance",
       owner: "Platform Team",
       acceptance_criteria: "Specs can be created from 14 types (including 13 templates), edited in Monaco editor, previewed with Mermaid, and attached to any node type",
@@ -118,7 +116,7 @@ async function seed() {
     const graphExploration = makeNode("BusinessCapability", "business", {
       name: "Graph Exploration & Visualization",
       description: "Capability to visually explore the architecture graph with force-directed layout, filtering, traversal, search, and time-travel",
-      level: 2,
+      level: 1,
       domain: "Architecture Governance",
       owner: "Platform Team",
       acceptance_criteria: "Interactive canvas graph with drag, zoom, click-to-navigate; filter by layer/type/status; BFS traversal up to N hops; full-text search; temporal snapshots",
@@ -130,7 +128,7 @@ async function seed() {
     const qualityAssurance = makeNode("BusinessCapability", "business", {
       name: "Architecture Quality Assurance",
       description: "Capability to validate the knowledge graph for completeness, consistency, and adherence to architectural patterns via advisory rules",
-      level: 2,
+      level: 1,
       domain: "Architecture Governance",
       owner: "Platform Team",
       acceptance_criteria: "Advisory validation rules detect orphan nodes, missing specs, missing realizations, and stale data; zero false positives on well-formed graphs",
@@ -142,7 +140,7 @@ async function seed() {
     const aiExport = makeNode("BusinessCapability", "business", {
       name: "AI-Ready Export",
       description: "Capability to export subgraphs as structured markdown documents optimized for consumption by AI coding agents",
-      level: 2,
+      level: 1,
       domain: "Architecture Governance",
       owner: "Platform Team",
       acceptance_criteria: "Export includes node details, relationships, spec content, and Mermaid diagrams in a single markdown document; downloadable or JSON response",
@@ -1812,6 +1810,126 @@ Used by GraphExplorer for node rendering colors.
       tags: ["ui", "graph", "canvas", "explorer"],
     });
 
+    const archMgmtBRS = makeNode("SpecDocument", "spec", {
+      name: "Enterprise Architecture Management — Business Requirements",
+      description: "Business requirement specification for the Enterprise Architecture Management capability",
+      spec_type: "business_requirements",
+      format: "markdown",
+      content: `# Business Requirement Specification — Enterprise Architecture Management
+
+## 1. Overview
+
+**Capability / Service:** Enterprise Architecture Management
+**Owner:** Chief Architect
+**Stakeholders:** Solution architects, development teams, platform engineering, compliance officers, CTO office
+**Business Drivers:** Need to model, track, and govern architecture artifacts across business, application, and specification layers to reduce architectural drift, enable impact analysis, and provide AI-ready documentation
+**Effective Date:** Project inception
+**Review Cycle:** Quarterly
+
+## 2. Functional Requirements
+
+| ID | Requirement | Priority | Rationale | Status |
+|----|------------|----------|-----------|--------|
+| FR-001 | The system shall support 9 node types across 3 layers (Business, Application, Spec) | Must | ArchiMate-inspired metamodel requires typed nodes with layer assignment | Active |
+| FR-002 | The system shall validate relationships against an allowed type matrix before creation | Must | Prevents invalid architecture connections that would corrupt the graph | Active |
+| FR-003 | The system shall preserve full version history via copy-on-write updates | Must | Architects need to understand how the architecture evolved over time | Active |
+| FR-004 | The system shall provide interactive graph visualization with filtering and navigation | Must | Visual exploration is the primary way architects understand complex architectures | Active |
+| FR-005 | The system shall support full-text search across node names and descriptions | Should | Architects need to quickly find nodes in large graphs | Active |
+| FR-006 | The system shall export subgraphs as structured markdown for AI agent consumption | Should | AI coding agents need architecture context to generate correct implementations | Active |
+| FR-007 | The system shall run advisory validation rules to detect quality issues | Should | Proactive quality checks reduce architectural debt | Active |
+| FR-008 | The system shall support 14+ specification templates with auto-fill | Could | Templates accelerate spec authoring and ensure consistency | Active |
+
+## 3. Non-Functional Requirements
+
+| Category | Requirement | Target | Measurement |
+|----------|------------|--------|-------------|
+| Performance | All CRUD operations respond quickly | < 500ms p95 | Manual testing (dev tool) |
+| Availability | Local development tool — available when running | N/A (local) | Dev server running |
+| Security | No authentication required | None (single-user local tool) | N/A |
+| Scalability | Handle a full enterprise architecture model | 500+ nodes, 1000+ relationships | Manual testing |
+| Usability | Graph explorer renders smoothly | 60fps on 100+ visible nodes | Browser dev tools |
+
+## 4. Acceptance Criteria
+
+### FR-001: Multi-Layer Node Types
+
+\\\`\\\`\\\`gherkin
+Given the system is running
+When a user creates a node of any of the 9 types
+Then the node is stored with correct type and layer assignment
+And the node receives a UUID, version=1, and valid_from timestamp
+\\\`\\\`\\\`
+
+### FR-003: Copy-on-Write Versioning
+
+\\\`\\\`\\\`gherkin
+Given a node exists with version N
+When the user updates any field on the node
+Then the old node receives valid_to = now
+And a new node is created with version N+1 and a new UUID
+And all active relationships are migrated to the new node
+\\\`\\\`\\\`
+
+### FR-006: AI-Ready Export
+
+\\\`\\\`\\\`gherkin
+Given a subgraph exists with nodes, relationships, and specs
+When the user exports from a root node with depth D
+Then the output is a structured markdown document
+And it includes node details, relationship tables, spec content, and Mermaid diagrams
+\\\`\\\`\\\`
+
+## 5. Constraints & Assumptions
+
+### Constraints
+
+- Must use Neo4j Community Edition (no clustering, no role-based access)
+- Single-user local development tool — no multi-tenancy
+- Next.js App Router architecture — all code in one monorepo
+
+### Assumptions
+
+- Users have Docker installed for Neo4j
+- Users have Node.js (via Homebrew on macOS)
+- Architecture models are under 1000 nodes for acceptable performance
+
+## 6. Success Metrics
+
+| KPI | Baseline | Target | Measurement Method | Review Frequency |
+|-----|----------|--------|-------------------|------------------|
+| Node types supported | 0 | 9 | Schema inspection | Per release |
+| Spec templates available | 0 | 14+ | Template registry count | Per release |
+| Validation rules active | 0 | 12+ | Rule count in engine | Per release |
+| Graph explorer FPS | N/A | 60fps @ 100 nodes | Browser dev tools | Per release |
+
+## 7. Dependencies
+
+| Dependency | Type | Owner | Status | Impact if Delayed |
+|-----------|------|-------|--------|-------------------|
+| Neo4j 5 Community | Infrastructure | Docker | Active | Cannot store graph data |
+| Next.js 15 | Framework | Vercel | Active | Cannot serve UI or API |
+| Monaco Editor | UI Component | Microsoft | Active | No spec editing |
+| Mermaid.js | Visualization | Community | Active | No diagram previews |
+
+## 8. Traceability Matrix
+
+| Requirement | Business Service | Business Process | Application Component | Test Spec |
+|------------|-----------------|-----------------|----------------------|-----------|
+| FR-001 | Architecture Graph Service | Node Lifecycle Management | Neo4j Driver Layer | — |
+| FR-002 | Architecture Graph Service | Node Lifecycle Management | Neo4j Driver Layer | Relationship Validation Rules |
+| FR-003 | Architecture Graph Service | Node Lifecycle Management | Neo4j Driver Layer | Node Update Workflow |
+| FR-004 | Graph Explorer Service | Graph Traversal & Search | Graph Explorer | Graph Explorer UI |
+| FR-005 | Architecture Graph Service | Graph Traversal & Search | Neo4j Driver Layer | — |
+| FR-006 | Graph Explorer Service | Graph Traversal & Search | Export Engine | — |
+| FR-007 | Architecture Graph Service | — | Validation Engine | — |
+| FR-008 | Architecture Graph Service | Specification Authoring | Template Registry | — |
+
+---
+*AI Agent Guidance: This BRS defines the "what and why" for the Enterprise Architecture Management capability. Use the functional requirements to understand scope, acceptance criteria for test generation, and the traceability matrix to navigate from requirements to implementing components. MoSCoW priorities indicate what is critical vs. nice-to-have.*`,
+      content_hash: "",
+      tags: ["business-requirements", "architecture", "capability"],
+    });
+
     // ── Create all nodes ──
     console.log("Inserting nodes...");
     const allNodes = [
@@ -1829,6 +1947,7 @@ Used by GraphExplorer for node rendering colors.
       architectureSpec, dataModelSpec, apiSpec, deploymentSpec,
       workflowSpec, stateSpec, businessRulesSpec, uiSpecDoc,
       driverImplSpec, nodeCrudImplSpec, typeSystemImplSpec,
+      archMgmtBRS,
     ];
 
     for (const node of allNodes) {
@@ -1843,13 +1962,6 @@ Used by GraphExplorer for node rendering colors.
     console.log("Creating relationships...");
 
     const rels: Array<{ type: string; from: string; to: string; props?: Record<string, unknown> }> = [
-      // Capability decomposition
-      { type: "COMPOSES", from: archMgmt.id, to: graphModeling.id },
-      { type: "COMPOSES", from: archMgmt.id, to: specMgmt.id },
-      { type: "COMPOSES", from: archMgmt.id, to: graphExploration.id },
-      { type: "COMPOSES", from: archMgmt.id, to: qualityAssurance.id },
-      { type: "COMPOSES", from: archMgmt.id, to: aiExport.id },
-
       // Services realize capabilities
       { type: "REALIZES", from: graphService.id, to: archMgmt.id },
       { type: "REALIZES", from: graphService.id, to: graphModeling.id },
@@ -1860,7 +1972,12 @@ Used by GraphExplorer for node rendering colors.
 
       // Services serve capabilities
       { type: "SERVES", from: graphService.id, to: archMgmt.id },
+      { type: "SERVES", from: graphService.id, to: graphModeling.id },
+      { type: "SERVES", from: graphService.id, to: specMgmt.id },
+      { type: "SERVES", from: graphService.id, to: qualityAssurance.id },
       { type: "SERVES", from: explorerService.id, to: archMgmt.id },
+      { type: "SERVES", from: explorerService.id, to: graphExploration.id },
+      { type: "SERVES", from: explorerService.id, to: aiExport.id },
 
       // Application realizes services
       { type: "REALIZES", from: specGraphApp.id, to: graphService.id },
@@ -1933,6 +2050,9 @@ Used by GraphExplorer for node rendering colors.
       { type: "SPECIFIED_BY", from: graphExplorerComp.id, to: uiSpecDoc.id },
       { type: "SPECIFIED_BY", from: graphModeling.id, to: businessRulesSpec.id },
       { type: "SPECIFIED_BY", from: relationshipEntity.id, to: businessRulesSpec.id },
+
+      // Business requirements specs
+      { type: "SPECIFIED_BY", from: archMgmt.id, to: archMgmtBRS.id },
 
       // Implementation specs for key components
       { type: "IMPLEMENTED_BY", from: neo4jDriver.id, to: driverImplSpec.id },
