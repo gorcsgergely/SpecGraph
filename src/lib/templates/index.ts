@@ -14,6 +14,7 @@ import { metadata as deploymentMeta, content as deploymentContent } from "./depl
 import { metadata as openapiMeta, content as openapiContent } from "./openapi";
 import { metadata as sequenceMeta, content as sequenceContent } from "./sequence";
 import { metadata as implementationSpecMeta, content as implementationSpecContent } from "./implementation-spec";
+import { metadata as testSpecMeta, content as testSpecContent } from "./test-spec";
 
 export interface TemplateInfo {
   name: string;
@@ -37,6 +38,7 @@ export const SPEC_TEMPLATES: Record<string, TemplateInfo> = {
   openapi: { ...openapiMeta, content: openapiContent },
   sequence: { ...sequenceMeta, content: sequenceContent },
   implementation_spec: { ...implementationSpecMeta, content: implementationSpecContent },
+  test_spec: { ...testSpecMeta, content: testSpecContent },
 };
 
 export function getTemplateContent(specType: string): string | null {
@@ -52,12 +54,12 @@ export type TemplateSuggestion = {
 const TEMPLATE_SUGGESTIONS: Partial<Record<NodeType, string[]>> = {
   BusinessCapability: ["business_requirements", "compliance_security", "business_rules"],
   BusinessService: ["business_requirements", "workflow", "compliance_security"],
-  BusinessProcess: ["workflow", "state_management", "business_rules"],
+  BusinessProcess: ["workflow", "state_management", "business_rules", "test_spec"],
   ProcessStep: ["workflow", "ui_spec", "business_rules"],
   DataEntity: ["data_model", "compliance_security"],
-  Application: ["architecture", "deployment", "compliance_security"],
-  ApplicationComponent: ["architecture", "api_internal", "implementation_spec"],
-  API: ["api_internal", "api_external", "openapi"],
+  Application: ["architecture", "deployment", "compliance_security", "test_spec"],
+  ApplicationComponent: ["architecture", "api_internal", "implementation_spec", "test_spec"],
+  API: ["api_internal", "api_external", "openapi", "test_spec"],
 };
 
 export function getSuggestedTemplates(nodeType: NodeType): TemplateSuggestion[] {

@@ -1930,6 +1930,167 @@ And it includes node details, relationship tables, spec content, and Mermaid dia
       tags: ["business-requirements", "architecture", "capability"],
     });
 
+    const nodeCrudTestSpec = makeNode("SpecDocument", "spec", {
+      name: "Node CRUD API — Test Specification",
+      description: "Test specification for the Node CRUD API covering create, read, update (copy-on-write), and soft-delete operations",
+      spec_type: "test_spec",
+      format: "markdown",
+      content: `# Test Specification — Node CRUD API
+
+## 1. Overview
+
+**Subject Under Test:** Node CRUD API (GET/PUT/DELETE /api/nodes/:nodeId)
+**Owner:** Platform Team
+**Test Strategy:** Integration tests against live Neo4j (Docker); unit tests for validation logic
+**Coverage Target:** 100% happy-path; 90% error paths; all copy-on-write edge cases
+**Dependencies:** Neo4j test container, seed data fixtures, neo4j-driver v5
+
+## 2. Test Scope
+
+### In Scope
+
+- GET /api/nodes/:nodeId — retrieve current and historical versions
+- PUT /api/nodes/:nodeId — copy-on-write update with relationship migration
+- DELETE /api/nodes/:nodeId — soft-delete (set valid_to) with relationship closure
+- Temporal queries via asOf parameter
+- Zod schema validation for all 9 node types
+
+### Out of Scope
+
+- List/Create endpoints (covered by separate test spec)
+- Graph traversal and search (covered by traversal test spec)
+- UI integration tests
+
+## 3. Test Cases
+
+### 3.1 Happy Path
+
+| ID | Scenario | Input | Expected Output | Priority |
+|----|----------|-------|-----------------|----------|
+| TC-001 | Get existing node by ID | Valid UUID of active node | 200 + node object with all properties | P0 |
+| TC-002 | Get historical version with asOf | Valid UUID + past timestamp | 200 + node as it existed at that point | P1 |
+| TC-003 | Update node triggers copy-on-write | Valid UUID + updated name | 200 + new node: new UUID, version+1, old node gets valid_to | P0 |
+| TC-004 | Update preserves unmodified fields | Valid UUID + partial update | 200 + new node with original fields merged | P0 |
+| TC-005 | Update migrates outgoing relationships | Node with outgoing rels + update | Old rels get valid_to; new rels point from new node | P0 |
+| TC-006 | Update migrates incoming relationships | Node with incoming rels + update | Old rels get valid_to; new rels point to new node | P0 |
+| TC-007 | Delete soft-closes node | Valid UUID | 204 + node.valid_to set to now | P0 |
+| TC-008 | Delete closes active relationships | Node with rels | 204 + all active rels get valid_to | P0 |
+
+### 3.2 Error / Edge Cases
+
+| ID | Scenario | Input | Expected Output | Priority |
+|----|----------|-------|-----------------|----------|
+| TC-010 | Get non-existent node | Random UUID | 404 Not Found | P0 |
+| TC-011 | Get archived node (no asOf) | UUID of node with valid_to set | 404 Not Found | P1 |
+| TC-012 | Update non-existent node | Random UUID + fields | 404 Not Found | P0 |
+| TC-013 | Update with invalid fields | Valid UUID + wrong type data | 400 Bad Request with validation errors | P1 |
+| TC-014 | Delete already-deleted node | UUID of soft-deleted node | 404 Not Found | P1 |
+| TC-015 | Update node with no relationships | Valid UUID (orphan node) | 200 + new version, no migration needed | P1 |
+| TC-016 | Concurrent updates to same node | Two PUT requests in parallel | Both succeed; second sees version from first | P2 |
+
+### 3.3 Security
+
+| ID | Scenario | Input | Expected Output | Priority |
+|----|----------|-------|-----------------|----------|
+| TC-020 | Cypher injection in node ID | ID containing Cypher syntax | 404 or 400 (parameterized query prevents injection) | P0 |
+| TC-021 | Oversized payload | PUT with 10MB body | 400 or 413 Payload Too Large | P2 |
+
+## 4. Acceptance Tests
+
+### Copy-on-Write Versioning
+
+\\\`\\\`\\\`gherkin
+Given a node "Payment Service" exists with version 1 and UUID "abc-123"
+And the node has an outgoing REALIZES relationship to "Payment Capability"
+When I PUT /api/nodes/abc-123 with {"name": "Payment Gateway"}
+Then the response status is 200
+And the response contains a new UUID (not "abc-123")
+And the response version is 2
+And the response name is "Payment Gateway"
+And the old node "abc-123" has valid_to set
+And a new REALIZES relationship exists from the new node to "Payment Capability"
+And the old REALIZES relationship has valid_to set
+\\\`\\\`\\\`
+
+### Soft Delete
+
+\\\`\\\`\\\`gherkin
+Given a node "Legacy App" exists with 3 active relationships
+When I DELETE /api/nodes/{legacyAppId}
+Then the response status is 204
+And the node has valid_to set to approximately now
+And all 3 relationships have valid_to set to approximately now
+And GET /api/nodes/{legacyAppId} returns 404
+And GET /api/nodes/{legacyAppId}?asOf={beforeDelete} returns the node
+\\\`\\\`\\\`
+
+### Temporal Query
+
+\\\`\\\`\\\`gherkin
+Given a node was created at T1, updated at T2, and deleted at T3
+When I GET /api/nodes/{id}?asOf={T1.5}
+Then the response is the version 1 of the node
+When I GET /api/nodes/{id}?asOf={T2.5}
+Then the response is the version 2 of the node
+When I GET /api/nodes/{id}?asOf={T3.5}
+Then the response is 404
+\\\`\\\`\\\`
+
+## 5. Test Data
+
+### Fixtures
+
+| Fixture | Description | Location |
+|---------|-------------|----------|
+| seed-test-nodes | 5 nodes of different types with known UUIDs | Test setup function |
+| seed-test-rels | 8 relationships between test nodes | Test setup function |
+| historical-node | Node with 3 versions at known timestamps | Test setup function |
+
+### Mocks / Stubs
+
+| Dependency | Mock Strategy | Behavior |
+|-----------|--------------|----------|
+| Neo4j | Docker test container | Fresh database per test suite, seeded with fixtures |
+| Time | Controlled timestamps | Tests use explicit ISO timestamps, not Date.now() |
+
+## 6. Automation
+
+### Test Commands
+
+\\\`\\\`\\\`bash
+# Run node CRUD tests
+npm test -- --grep "Node CRUD"
+
+# Run with coverage
+npm test -- --coverage --collectCoverageFrom="src/lib/neo4j/queries/nodes.ts"
+
+# Run copy-on-write specific tests
+npm test -- --grep "copy-on-write"
+\\\`\\\`\\\`
+
+### CI Integration
+
+| Stage | Tests Run | Blocking | Timeout |
+|-------|----------|----------|---------|
+| PR check | All Node CRUD tests | Yes | 60s |
+| Post-merge | Full API test suite | Yes | 5min |
+
+## 7. Coverage Matrix
+
+| Component / Module | Unit | Integration | E2E | Current % | Target % |
+|-------------------|------|------------|-----|-----------|----------|
+| getNode() | Yes | Yes | No | — | 90% |
+| updateNode() | Yes | Yes | No | — | 95% |
+| deleteNode() | Yes | Yes | No | — | 90% |
+| migrateRelationships() | No | Yes | No | — | 85% |
+| Zod validation | Yes | No | No | — | 100% |
+
+---
+*AI Agent Guidance: The copy-on-write tests (TC-003 through TC-006) are the most critical — they validate the core versioning mechanism. Always verify both the new node AND the old node state after an update. Relationship migration must be tested for both directions (incoming and outgoing). Use explicit timestamps in test data to make temporal queries deterministic.*`,
+      content_hash: "",
+      tags: ["test", "api", "crud", "copy-on-write"],
+    });
+
     // ── Create all nodes ──
     console.log("Inserting nodes...");
     const allNodes = [
@@ -1948,6 +2109,7 @@ And it includes node details, relationship tables, spec content, and Mermaid dia
       workflowSpec, stateSpec, businessRulesSpec, uiSpecDoc,
       driverImplSpec, nodeCrudImplSpec, typeSystemImplSpec,
       archMgmtBRS,
+      nodeCrudTestSpec,
     ];
 
     for (const node of allNodes) {
@@ -2062,6 +2224,8 @@ And it includes node details, relationship tables, spec content, and Mermaid dia
       // Tested by specs
       { type: "TESTED_BY", from: validationEngine.id, to: businessRulesSpec.id },
       { type: "TESTED_BY", from: neo4jDriver.id, to: apiSpec.id },
+      { type: "TESTED_BY", from: nodeCrudAPI.id, to: nodeCrudTestSpec.id },
+      { type: "TESTED_BY", from: neo4jDriver.id, to: nodeCrudTestSpec.id },
     ];
 
     for (const rel of rels) {
