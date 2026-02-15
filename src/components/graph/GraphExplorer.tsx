@@ -142,6 +142,17 @@ export function GraphExplorer({
     adjacencyRef.current = adj;
   }, [relationships]);
 
+  // Escape key clears selection
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedRef.current) {
+        onNodeSelect?.(selectedRef.current);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onNodeSelect]);
+
   // Save layout to cache on unmount
   useEffect(() => {
     return () => {
