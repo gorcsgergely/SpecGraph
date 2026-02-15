@@ -101,11 +101,9 @@ const TYPE_FIELDS: Record<string, Array<{ name: string; type: "text" | "textarea
     { name: "response_schema", type: "textarea", label: "Response Schema" },
     { name: "error_codes", type: "textarea", label: "Error Codes" },
     { name: "code_hints", type: "textarea", label: "Code Hints" },
-    { name: "example_request", type: "textarea", label: "Example Request" },
-    { name: "example_response", type: "textarea", label: "Example Response" },
   ],
   SpecDocument: [
-    { name: "spec_type", type: "select", label: "Spec Type", options: ["openapi", "erd", "sequence", "test_spec", "design_doc", "implementation_spec", "compliance_security", "architecture", "data_model", "state_management", "workflow", "api_internal", "api_external", "ui_spec", "business_rules", "deployment"] },
+    { name: "spec_type", type: "select", label: "Spec Type", options: ["openapi", "sequence", "test_spec", "implementation_spec", "compliance_security", "architecture", "data_model", "state_management", "workflow", "api_internal", "api_external", "ui_spec", "business_rules", "deployment"] },
     { name: "format", type: "select", label: "Format", options: ["markdown", "yaml", "json", "mermaid"] },
     { name: "content", type: "textarea", label: "Content" },
   ],

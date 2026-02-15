@@ -288,8 +288,6 @@ async function seed() {
       response_schema: '{"applicationId": "uuid", "status": "received", "preQualEligible": "boolean", "estimatedDecisionDate": "datetime"}',
       error_codes: "400: Invalid input, 409: Duplicate application, 422: Ineligible property, 503: Credit bureau unavailable",
       code_hints: "Handler: ApplicationController.create(), validates via Zod, publishes ApplicationCreated event",
-      example_request: '{"borrower": {"ssn": "123-45-6789", "firstName": "John", "lastName": "Doe"}, "property": {"address": "123 Main St"}, "loanAmount": 350000, "loanType": "conventional"}',
-      example_response: '{"applicationId": "a1b2c3d4-...", "status": "received", "preQualEligible": true}',
       tags: ["create", "application", "rest"],
     });
 
@@ -393,7 +391,7 @@ components:
     const erdSpec = makeNode("SpecDocument", "spec", {
       name: "Loan Application ERD",
       description: "Entity-relationship diagram for loan application data model",
-      spec_type: "erd",
+      spec_type: "data_model",
       format: "mermaid",
       content: `erDiagram
     BORROWER ||--o{ LOAN_APPLICATION : applies
@@ -1685,9 +1683,6 @@ monthly_pmi = (loan_amount × annual_pmi_rate) / 12
       { type: "COMPOSES", from: loanOS.id, to: creditAdapter.id },
 
       // Data access
-      { type: "ACCESSES", from: appService.id, to: loanApplication.id, props: { access_type: "read_write" } },
-      { type: "ACCESSES", from: appService.id, to: borrowerProfile.id, props: { access_type: "read_write" } },
-      { type: "ACCESSES", from: creditAdapter.id, to: creditReport.id, props: { access_type: "write" } },
       { type: "ACCESSES", from: createAppAPI.id, to: loanApplication.id, props: { access_type: "write" } },
       { type: "ACCESSES", from: getAppAPI.id, to: loanApplication.id, props: { access_type: "read" } },
 

@@ -10,6 +10,9 @@ import { metadata as apiExternalMeta, content as apiExternalContent } from "./ap
 import { metadata as uiSpecMeta, content as uiSpecContent } from "./ui-spec";
 import { metadata as businessRulesMeta, content as businessRulesContent } from "./business-rules";
 import { metadata as deploymentMeta, content as deploymentContent } from "./deployment";
+import { metadata as openapiMeta, content as openapiContent } from "./openapi";
+import { metadata as sequenceMeta, content as sequenceContent } from "./sequence";
+import { metadata as implementationSpecMeta, content as implementationSpecContent } from "./implementation-spec";
 
 export interface TemplateInfo {
   name: string;
@@ -29,6 +32,9 @@ export const SPEC_TEMPLATES: Record<string, TemplateInfo> = {
   ui_spec: { ...uiSpecMeta, content: uiSpecContent },
   business_rules: { ...businessRulesMeta, content: businessRulesContent },
   deployment: { ...deploymentMeta, content: deploymentContent },
+  openapi: { ...openapiMeta, content: openapiContent },
+  sequence: { ...sequenceMeta, content: sequenceContent },
+  implementation_spec: { ...implementationSpecMeta, content: implementationSpecContent },
 };
 
 export function getTemplateContent(specType: string): string | null {
@@ -45,11 +51,11 @@ const TEMPLATE_SUGGESTIONS: Partial<Record<NodeType, string[]>> = {
   BusinessCapability: ["compliance_security", "business_rules"],
   BusinessService: ["workflow", "compliance_security"],
   BusinessProcess: ["workflow", "state_management", "business_rules"],
-  ProcessStep: ["workflow", "ui_spec"],
+  ProcessStep: ["workflow", "ui_spec", "business_rules"],
   DataEntity: ["data_model", "compliance_security"],
-  Application: ["architecture", "deployment"],
-  ApplicationComponent: ["architecture", "api_internal"],
-  API: ["api_internal", "api_external"],
+  Application: ["architecture", "deployment", "compliance_security"],
+  ApplicationComponent: ["architecture", "api_internal", "implementation_spec"],
+  API: ["api_internal", "api_external", "openapi"],
 };
 
 export function getSuggestedTemplates(nodeType: NodeType): TemplateSuggestion[] {

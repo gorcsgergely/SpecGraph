@@ -146,8 +146,6 @@ export const APISchema = BaseNodeSchema.extend({
   response_schema: z.string().default(""),
   error_codes: z.string().default(""),
   code_hints: z.string().default(""),
-  example_request: z.string().default(""),
-  example_response: z.string().default(""),
 });
 export type APINode = z.infer<typeof APISchema>;
 
@@ -155,10 +153,8 @@ export type APINode = z.infer<typeof APISchema>;
 
 export const SpecTypeEnum = z.enum([
   "openapi",
-  "erd",
   "sequence",
   "test_spec",
-  "design_doc",
   "implementation_spec",
   "compliance_security",
   "architecture",
@@ -259,7 +255,6 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
   ACCESSES: [
     ["BusinessProcess", "DataEntity"],
     ["ProcessStep", "DataEntity"],
-    ["ApplicationComponent", "DataEntity"],
     ["API", "DataEntity"],
   ],
   FLOWS_TO: [
@@ -331,7 +326,7 @@ export const NODE_TYPE_COLORS: Record<NodeType, string> = {
   BusinessService: "#3b82f6",
   BusinessProcess: "#60a5fa",
   ProcessStep: "#93c5fd",
-  DataEntity: "#6366f1",
+  DataEntity: "#a855f7",
   Application: "#059669",
   ApplicationComponent: "#10b981",
   API: "#34d399",

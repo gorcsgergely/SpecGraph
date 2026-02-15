@@ -109,7 +109,7 @@ async function seed() {
       level: 2,
       domain: "Architecture Governance",
       owner: "Platform Team",
-      acceptance_criteria: "Specs can be created from 16 types (including 10 templates), edited in Monaco editor, previewed with Mermaid, and attached to any node type",
+      acceptance_criteria: "Specs can be created from 14 types (including 13 templates), edited in Monaco editor, previewed with Mermaid, and attached to any node type",
       business_rules: "Specs attached via SPECIFIED_BY, TESTED_BY, or IMPLEMENTED_BY relationships; template auto-fill on create for template types",
       regulatory_refs: [],
       tags: ["specs", "templates", "authoring"],
@@ -318,14 +318,14 @@ async function seed() {
 
     const specDocEntity = makeNode("DataEntity", "business", {
       name: "Spec Document",
-      description: "Specification document stored as a SpecDocument node with content in markdown/yaml/json/mermaid format, one of 16 spec types",
+      description: "Specification document stored as a SpecDocument node with content in markdown/yaml/json/mermaid format, one of 14 spec types",
       entity_type: "transactional",
       sensitivity: "internal",
       pii: false,
       retention_policy: "Indefinite — versioned like all nodes",
-      schema_summary: "id, name, description, spec_type (16 values), format (markdown/yaml/json/mermaid), content (string), content_hash, plus base node fields",
+      schema_summary: "id, name, description, spec_type (14 values), format (markdown/yaml/json/mermaid), content (string), content_hash, plus base node fields",
       validation_rules: "spec_type must be valid enum; format must be valid enum; content is free-form string",
-      code_hints: "Neo4j node with label SpecDocument; 10 template types auto-fill from src/lib/templates/",
+      code_hints: "Neo4j node with label SpecDocument; 13 template types auto-fill from src/lib/templates/",
       tags: ["spec", "document", "content"],
     });
 
@@ -399,7 +399,7 @@ async function seed() {
       package_path: "src/lib/validation",
       repo_path: "src/lib/validation",
       interface_spec: "rules.ts defines VALIDATION_RULES array; engine.ts runs them against Neo4j and returns ValidationWarning[]",
-      code_hints: "8 rules: orphan_node, api_no_openapi, capability_no_service, service_no_app, process_no_steps, data_no_erd, stale_node, missing_acceptance_criteria; use NOT EXISTS {} for null checks",
+      code_hints: "12 rules: orphan_node, api_no_openapi, capability_no_service, service_no_app, process_no_steps, data_no_erd, stale_node, missing_acceptance_criteria, capability_no_app_chain, circular_dependency, deprecated_in_use, spec_no_parent; use NOT EXISTS {} for null checks",
       dependencies_notes: "Depends on Neo4j driver layer",
       acceptance_criteria: "All rules produce zero false positives on well-formed graphs; severity levels correctly assigned",
       tags: ["validation", "rules", "engine"],
@@ -421,15 +421,15 @@ async function seed() {
 
     const templateRegistry = makeNode("ApplicationComponent", "application", {
       name: "Template Registry",
-      description: "Registry of 10 specification templates with structured markdown content, metadata, and node-type-based suggestions",
+      description: "Registry of 13 specification templates with structured markdown content, metadata, and node-type-based suggestions",
       component_type: "library",
       language: "TypeScript",
       package_path: "src/lib/templates",
       repo_path: "src/lib/templates",
-      interface_spec: "index.ts exports SPEC_TEMPLATES map, getTemplateContent(), getSuggestedTemplates(), getAllTemplates(); 10 template modules export content + metadata",
-      code_hints: "Templates: compliance_security, architecture, data_model, state_management, workflow, api_internal, api_external, ui_spec, business_rules, deployment",
+      interface_spec: "index.ts exports SPEC_TEMPLATES map, getTemplateContent(), getSuggestedTemplates(), getAllTemplates(); 13 template modules export content + metadata",
+      code_hints: "Templates: compliance_security, architecture, data_model, state_management, workflow, api_internal, api_external, ui_spec, business_rules, deployment, openapi, sequence, implementation_spec",
       dependencies_notes: "Pure TypeScript — no external dependencies",
-      acceptance_criteria: "All 10 templates load correctly; suggestions match node types; content is valid markdown with Mermaid blocks",
+      acceptance_criteria: "All 13 templates load correctly; suggestions match node types; content is valid markdown with Mermaid blocks",
       tags: ["templates", "registry", "specs"],
     });
 
@@ -720,13 +720,13 @@ All nodes and relationships carry \`valid_from\` and \`valid_to\` timestamps:
 |-------|---------------------|
 | Application | app_type (custom/cots/saas/legacy), tech_stack[], deployment, repo_url, architecture_notes, code_hints, non_functional_reqs |
 | ApplicationComponent | component_type, language, package_path, repo_path, interface_spec, code_hints, dependencies_notes, acceptance_criteria |
-| API | api_type (rest/graphql/grpc/event), method, path, auth_type, rate_limit, request_schema, response_schema, error_codes, code_hints, example_request, example_response |
+| API | api_type (rest/graphql/grpc/event), method, path, auth_type, rate_limit, request_schema, response_schema, error_codes, code_hints |
 
 ### Spec Layer (1 type)
 
 | Label | Additional Properties |
 |-------|---------------------|
-| SpecDocument | spec_type (16 values), format (markdown/yaml/json/mermaid), content, content_hash |
+| SpecDocument | spec_type (14 values), format (markdown/yaml/json/mermaid), content, content_hash |
 
 ## 3. Relationship Types
 
@@ -743,7 +743,6 @@ graph LR
     API -->|SERVES| BS
     BP -->|ACCESSES| DE[DataEntity]
     PS -->|ACCESSES| DE
-    AC -->|ACCESSES| DE
     API -->|ACCESSES| DE
     PS -->|FLOWS_TO| PS
     App -->|FLOWS_TO| App
@@ -1093,7 +1092,6 @@ stateDiagram-v2
 | SERVES | API → BusinessService | API serves service |
 | ACCESSES | BusinessProcess → DataEntity | Process accesses data |
 | ACCESSES | ProcessStep → DataEntity | Step accesses data |
-| ACCESSES | ApplicationComponent → DataEntity | Component accesses data |
 | ACCESSES | API → DataEntity | API accesses data |
 | FLOWS_TO | ProcessStep → ProcessStep | Step sequence |
 | FLOWS_TO | Application → Application | App integration flow |
@@ -1127,6 +1125,616 @@ The ACCESSES relationship has an additional \`access_type\` property:
 *AI Agent Guidance: The matrix is defined in ALLOWED_RELATIONSHIPS in src/lib/types/graph.ts. Check isRelationshipAllowed() before creating any relationship. The matrix is the single source of truth for what connects to what.*`,
       content_hash: "",
       tags: ["business-rules", "relationships", "validation"],
+    });
+
+    const driverImplSpec = makeNode("SpecDocument", "spec", {
+      name: "Neo4j Driver Implementation",
+      description: "Implementation specification for the Neo4j driver layer: singleton driver, executeQuery/executeWrite helpers, toPlainValue() deserialization, and session lifecycle",
+      spec_type: "implementation_spec",
+      format: "markdown",
+      content: `# Implementation Specification — Neo4j Driver Layer
+
+## 1. Overview
+
+**Component:** Neo4j Driver Layer
+**File:** src/lib/neo4j/driver.ts
+**Purpose:** Singleton Neo4j driver with query/write helpers that handle session lifecycle and Neo4j type deserialization
+
+## 2. Singleton Driver
+
+\`\`\`typescript
+import neo4j, { Driver, Session } from "neo4j-driver";
+
+let driver: Driver | null = null;
+
+export function getDriver(): Driver {
+  if (!driver) {
+    const uri = process.env.NEO4J_URI || "bolt://localhost:7687";
+    const user = process.env.NEO4J_USER || "neo4j";
+    const password = process.env.NEO4J_PASSWORD || "specgraph-dev";
+    driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+  }
+  return driver;
+}
+\`\`\`
+
+Module-level \`driver\` variable — lazily initialized on first use. Environment variables with local defaults.
+
+## 3. executeQuery\<T\>() — Read Operations
+
+\`\`\`typescript
+export async function executeQuery<T = Record<string, unknown>>(
+  cypher: string,
+  params: Record<string, unknown> = {}
+): Promise<T[]> {
+  const d = getDriver();
+  const session: Session = d.session();
+  try {
+    const result = await session.run(cypher, params);
+    return result.records.map((record: any) => {
+      const obj: Record<string, unknown> = {};
+      for (const key of record.keys) {
+        obj[String(key)] = toPlainValue(record.get(key));
+      }
+      return obj as T;
+    });
+  } finally {
+    await session.close();
+  }
+}
+\`\`\`
+
+**Key patterns:**
+- Opens a new session per call, closes in \`finally\` block (never leaks sessions)
+- Uses \`session.run()\` for auto-commit read transactions
+- Maps each record by iterating \`record.keys\` and calling \`toPlainValue()\` on each field
+- Records typed as \`any\` because neo4j-driver generics are too complex for TypeScript inference
+
+## 4. executeWrite\<T\>() — Write Operations
+
+\`\`\`typescript
+export async function executeWrite<T = Record<string, unknown>>(
+  cypher: string,
+  params: Record<string, unknown> = {}
+): Promise<T[]> {
+  const d = getDriver();
+  const session: Session = d.session();
+  try {
+    const result = await session.executeWrite((tx) =>
+      tx.run(cypher, params)
+    );
+    // Same record mapping as executeQuery...
+  } finally {
+    await session.close();
+  }
+}
+\`\`\`
+
+**Key difference:** Uses \`session.executeWrite()\` with a transaction function — ensures proper write transaction semantics with automatic retry on transient errors.
+
+## 5. toPlainValue() — Neo4j Type Deserialization
+
+\`\`\`typescript
+function toPlainValue(val: any): unknown {
+  if (val === null || val === undefined) return val;
+  if (neo4j.isInt(val)) return val.toNumber();
+  if (neo4j.isDate(val) || neo4j.isDateTime(val) || neo4j.isLocalDateTime(val)) {
+    return val.toString();
+  }
+  if (typeof val === "object" && val !== null && "properties" in val) {
+    const props: Record<string, unknown> = {};
+    const nodeVal = val as { properties: Record<string, unknown>; labels?: string[] };
+    for (const [k, v] of Object.entries(nodeVal.properties)) {
+      props[k] = toPlainValue(v);
+    }
+    if (nodeVal.labels) {
+      props.nodeType = nodeVal.labels.find((l: string) => l !== "BaseNode");
+    }
+    return props;
+  }
+  if (Array.isArray(val)) return val.map(toPlainValue);
+  return val;
+}
+\`\`\`
+
+**Recursive deserialization handles 5 cases:**
+1. **null/undefined** — pass through
+2. **Neo4j Integer** (\`neo4j.isInt()\`) — convert to JS number via \`.toNumber()\`
+3. **Neo4j DateTime** (\`isDate/isDateTime/isLocalDateTime\`) — convert to ISO string via \`.toString()\`
+4. **Neo4j Node/Relationship object** (has \`properties\` field) — recursively deserialize all properties; extract \`nodeType\` from labels (skipping "BaseNode")
+5. **Array** — map each element through \`toPlainValue()\`
+6. **Primitive** — return as-is
+
+**Critical for correctness:** Without this, Neo4j integers arrive as \`{low: n, high: 0}\` objects and datetimes as complex nested objects. All API responses would break.
+
+## 6. closeDriver()
+
+\`\`\`typescript
+export async function closeDriver(): Promise<void> {
+  if (driver) {
+    await driver.close();
+    driver = null;
+  }
+}
+\`\`\`
+
+Cleanup function for graceful shutdown.
+
+---
+*AI Agent Guidance: This is the foundation layer — all Neo4j access goes through executeQuery/executeWrite. The toPlainValue() function is critical and non-obvious. Always close sessions in finally blocks. Use executeWrite for any mutation. Records need \`any\` type cast due to driver generic complexity.*`,
+      content_hash: "",
+      tags: ["implementation", "driver", "neo4j", "deserialization"],
+    });
+
+    const nodeCrudImplSpec = makeNode("SpecDocument", "spec", {
+      name: "Node CRUD & Copy-on-Write Implementation",
+      description: "Implementation specification for node CRUD operations including the copy-on-write update pattern with per-type relationship migration",
+      spec_type: "implementation_spec",
+      format: "markdown",
+      content: `# Implementation Specification — Node CRUD & Copy-on-Write
+
+## 1. Overview
+
+**Component:** Node Query Functions
+**File:** src/lib/neo4j/queries/nodes.ts
+**Purpose:** CRUD operations for graph nodes with copy-on-write versioning
+**Dependencies:** uuid, neo4j-driver, ../driver (executeQuery/executeWrite), ../temporal (predicates), ../../types/graph
+
+## 2. createNode()
+
+\`\`\`typescript
+export async function createNode(
+  nodeType: NodeType,
+  props: Record<string, unknown>
+): Promise<GraphNode> {
+  const now = nowISO();
+  const id = uuidv4();
+  const nodeProps = {
+    ...props,
+    id,
+    nodeType,
+    valid_from: now,
+    valid_to: null,
+    version: 1,
+    updated_at: now,
+    created_by: props.created_by || "system",
+    tags: props.tags || [],
+  };
+  const result = await executeWrite<{ n: GraphNode }>(
+    \\\`CREATE (n:\\\${nodeType} $props) RETURN n\\\`,
+    { props: nodeProps }
+  );
+  return result[0].n;
+}
+\`\`\`
+
+**Pattern:** Spread user props, then override system fields (id, version, timestamps). Uses string interpolation for the label (safe — nodeType is validated upstream via Zod enum). Returns the deserialized node.
+
+## 3. updateNode() — Copy-on-Write
+
+\`\`\`typescript
+export async function updateNode(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<GraphNode | null> {
+  const now = nowISO();
+
+  // Step 1: Close old version
+  await executeWrite(
+    \\\`MATCH (n) WHERE n.id = $id AND n.valid_to IS NULL
+     SET n.valid_to = $now\\\`,
+    { id, now }
+  );
+
+  // Step 2: Get old node data (now has valid_to = now)
+  const oldResult = await executeQuery<{ n: GraphNode }>(
+    \\\`MATCH (n) WHERE n.id = $id AND n.valid_to = $now RETURN n LIMIT 1\\\`,
+    { id, now }
+  );
+  if (!oldResult[0]) return null;
+  const oldNode = oldResult[0].n as Record<string, unknown>;
+
+  // Step 3: Create new version with merged props
+  const newId = uuidv4();
+  const nodeType = oldNode.nodeType as string;
+  const newProps = {
+    ...oldNode,      // All old properties
+    ...updates,      // Overwrite with updates
+    id: newId,       // New UUID
+    version: ((oldNode.version as number) || 1) + 1,
+    valid_from: now,
+    valid_to: null,
+    updated_at: now,
+  };
+  const result = await executeWrite<{ n: GraphNode }>(
+    \\\`CREATE (n:\\\${nodeType} $props) RETURN n\\\`,
+    { props: newProps }
+  );
+
+  // Step 4: Migrate relationships
+  await migrateRelationships(id, newId, now);
+
+  return result[0]?.n ?? null;
+}
+\`\`\`
+
+**Critical sequence:** Close → Read → Create → Migrate. The old node is found by matching \`valid_to = now\` (the exact timestamp just set). New node gets a fresh UUID and incremented version.
+
+## 4. migrateRelationships() — Per-Type Migration
+
+\`\`\`typescript
+async function migrateRelationships(
+  oldNodeId: string,
+  newNodeId: string,
+  now: string
+): Promise<void> {
+  // --- Outgoing relationships ---
+  const outgoing = await executeQuery<{
+    relType: string; targetId: string; props: Record<string, unknown>;
+  }>(
+    \\\`MATCH (source)-[r]->(target)
+     WHERE source.id = $oldId AND r.valid_to IS NULL
+     RETURN type(r) as relType, target.id as targetId, properties(r) as props\\\`,
+    { oldId: oldNodeId }
+  );
+
+  for (const rel of outgoing) {
+    // Close old relationship
+    await executeWrite(
+      \\\`MATCH (source)-[r:\\\${rel.relType}]->(target)
+       WHERE source.id = $oldId AND target.id = $targetId AND r.valid_to IS NULL
+       SET r.valid_to = $now\\\`,
+      { oldId: oldNodeId, targetId: rel.targetId, now }
+    );
+    // Create new relationship pointing from new node
+    const newRelProps = { ...rel.props, id: uuidv4(), valid_from: now, valid_to: null };
+    await executeWrite(
+      \\\`MATCH (source), (target)
+       WHERE source.id = $newId AND target.id = $targetId AND target.valid_to IS NULL
+       CREATE (source)-[r:\\\${rel.relType} $props]->(target)\\\`,
+      { newId: newNodeId, targetId: rel.targetId, props: newRelProps }
+    );
+  }
+
+  // --- Incoming relationships (same pattern, reversed direction) ---
+  const incoming = await executeQuery<{
+    relType: string; sourceId: string; props: Record<string, unknown>;
+  }>(
+    \\\`MATCH (source)-[r]->(target)
+     WHERE target.id = $oldId AND r.valid_to IS NULL
+     RETURN type(r) as relType, source.id as sourceId, properties(r) as props\\\`,
+    { oldId: oldNodeId }
+  );
+
+  for (const rel of incoming) {
+    await executeWrite(
+      \\\`MATCH (source)-[r:\\\${rel.relType}]->(target)
+       WHERE source.id = $sourceId AND target.id = $oldId AND r.valid_to IS NULL
+       SET r.valid_to = $now\\\`,
+      { sourceId: rel.sourceId, oldId: oldNodeId, now }
+    );
+    const newRelProps = { ...rel.props, id: uuidv4(), valid_from: now, valid_to: null };
+    await executeWrite(
+      \\\`MATCH (source), (target)
+       WHERE source.id = $sourceId AND target.id = $newId AND source.valid_to IS NULL
+       CREATE (source)-[r:\\\${rel.relType} $props]->(target)\\\`,
+      { sourceId: rel.sourceId, newId: newNodeId, props: newRelProps }
+    );
+  }
+}
+\`\`\`
+
+**Why per-type:** Cypher requires literal relationship types in CREATE — you cannot use a variable like \`CREATE (a)-[r:$type]->(b)\`. So we query all active relationships, then iterate and use string interpolation for each relationship type.
+
+**Each relationship gets:** old one closed (valid_to = now) + new one created with fresh UUID and valid_from = now.
+
+## 5. deleteNode() — Soft Delete
+
+\`\`\`typescript
+export async function deleteNode(id: string): Promise<boolean> {
+  const now = nowISO();
+  const result = await executeWrite<{ count: number }>(
+    \\\`MATCH (n) WHERE n.id = $id AND n.valid_to IS NULL
+     SET n.valid_to = $now
+     WITH n
+     MATCH (n)-[r]-() WHERE r.valid_to IS NULL
+     SET r.valid_to = $now
+     RETURN count(n) as count\\\`,
+    { id, now }
+  );
+  return (result[0]?.count ?? 0) > 0;
+}
+\`\`\`
+
+**Single Cypher statement:** Closes both the node and all its active relationships in one write transaction.
+
+## 6. listNodes() — Filtered Listing
+
+Uses dynamic Cypher construction with conditions array. Key detail: \`neo4j.int()\` wrapper required for SKIP/LIMIT params because JavaScript numbers are floats and Neo4j rejects them for integer-only operations.
+
+\`\`\`typescript
+function neo4jInt(n: number) {
+  return neo4j.int(n);
+}
+// Used as: { skip: neo4jInt(skip), limit: neo4jInt(limit) }
+\`\`\`
+
+## 7. getNodeHistory()
+
+Finds version history by matching on \`name + nodeType\` (not ID, since each version gets a new UUID). Gets the current node first to extract its name, then queries all versions sorted by version DESC.
+
+---
+*AI Agent Guidance: The copy-on-write pattern is the most complex part of the codebase. The critical non-obvious detail is that relationship migration must iterate per-type because Cypher doesn't support dynamic relationship types in CREATE. Always use executeWrite for mutations. The neo4jInt() helper is required for SKIP/LIMIT.*`,
+      content_hash: "",
+      tags: ["implementation", "crud", "copy-on-write", "cypher"],
+    });
+
+    const typeSystemImplSpec = makeNode("SpecDocument", "spec", {
+      name: "Type System & Zod Schemas",
+      description: "Implementation specification for the complete type system: 9 Zod schemas, relationship matrix, type colors, and validation helpers",
+      spec_type: "implementation_spec",
+      format: "markdown",
+      content: `# Implementation Specification — Type System & Zod Schemas
+
+## 1. Overview
+
+**Component:** Type System
+**File:** src/lib/types/graph.ts
+**Purpose:** Single source of truth for all node types, relationship types, validation schemas, allowed relationship matrix, and color maps
+**Import:** \`import { z } from "zod/v4"\` (NOT \`"zod"\` — Zod v4 uses subpath export)
+
+## 2. Base Node Schema
+
+\`\`\`typescript
+export const BaseNodeSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1),
+  description: z.string().default(""),
+  status: NodeStatus.default("draft"),       // "draft" | "active" | "deprecated" | "archived"
+  layer: NodeLayer,                           // "business" | "application" | "spec"
+  valid_from: z.string().datetime(),
+  valid_to: z.string().datetime().nullable().default(null),
+  version: z.number().int().positive().default(1),
+  created_by: z.string().default("system"),
+  updated_at: z.string().datetime(),
+  tags: z.array(z.string()).default([]),
+});
+\`\`\`
+
+## 3. Nine Node Type Schemas
+
+Each extends BaseNodeSchema with type-specific fields:
+
+### BusinessCapability
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("BusinessCapability"),
+  layer: z.literal("business"),
+  level: z.number().int().min(1).max(3),
+  domain: z.string(),
+  owner: z.string(),
+  acceptance_criteria: z.string().default(""),
+  business_rules: z.string().default(""),
+  regulatory_refs: z.array(z.string()).default([]),
+});
+\`\`\`
+
+### BusinessService
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("BusinessService"),
+  layer: z.literal("business"),
+  service_type: z.string(),
+  sla_target: z.string().default(""),
+  channel: z.array(z.string()).default([]),
+  acceptance_criteria: z.string().default(""),
+  service_contract: z.string().default(""),
+  non_functional_reqs: z.string().default(""),
+});
+\`\`\`
+
+### BusinessProcess
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("BusinessProcess"),
+  layer: z.literal("business"),
+  process_type: z.string(),
+  trigger: z.string().default(""),
+  outcome: z.string().default(""),
+  estimated_duration: z.string().default(""),
+  acceptance_criteria: z.string().default(""),
+  preconditions: z.string().default(""),
+  postconditions: z.string().default(""),
+  error_scenarios: z.string().default(""),
+});
+\`\`\`
+
+### ProcessStep
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("ProcessStep"),
+  layer: z.literal("business"),
+  sequence_order: z.number().int(),
+  step_type: z.enum(["manual", "automated", "decision"]),
+  actor: z.string().default(""),
+  input_spec: z.string().default(""),
+  output_spec: z.string().default(""),
+  validation_rules: z.string().default(""),
+  code_hints: z.string().default(""),
+});
+\`\`\`
+
+### DataEntity
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("DataEntity"),
+  layer: z.literal("business"),
+  entity_type: z.enum(["master", "transactional", "reference"]),
+  sensitivity: z.string().default(""),
+  pii: z.boolean().default(false),
+  retention_policy: z.string().default(""),
+  schema_summary: z.string().default(""),
+  validation_rules: z.string().default(""),
+  code_hints: z.string().default(""),
+});
+\`\`\`
+
+### Application
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("Application"),
+  layer: z.literal("application"),
+  app_type: z.enum(["custom", "cots", "saas", "legacy"]),
+  tech_stack: z.array(z.string()).default([]),
+  deployment: z.string().default(""),
+  repo_url: z.string().default(""),
+  architecture_notes: z.string().default(""),
+  code_hints: z.string().default(""),
+  non_functional_reqs: z.string().default(""),
+});
+\`\`\`
+
+### ApplicationComponent
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("ApplicationComponent"),
+  layer: z.literal("application"),
+  component_type: z.string(),
+  language: z.string().default(""),
+  package_path: z.string().default(""),
+  repo_path: z.string().default(""),
+  interface_spec: z.string().default(""),
+  code_hints: z.string().default(""),
+  dependencies_notes: z.string().default(""),
+  acceptance_criteria: z.string().default(""),
+});
+\`\`\`
+
+### API
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("API"),
+  layer: z.literal("application"),
+  api_type: z.enum(["rest", "graphql", "grpc", "event"]),
+  method: z.string().default(""),
+  path: z.string().default(""),
+  auth_type: z.string().default(""),
+  rate_limit: z.string().default(""),
+  request_schema: z.string().default(""),
+  response_schema: z.string().default(""),
+  error_codes: z.string().default(""),
+  code_hints: z.string().default(""),
+});
+\`\`\`
+
+### SpecDocument
+\`\`\`typescript
+BaseNodeSchema.extend({
+  nodeType: z.literal("SpecDocument"),
+  layer: z.literal("spec"),
+  spec_type: SpecTypeEnum,    // 14 values: openapi, sequence, ...
+  format: SpecFormatEnum,      // markdown, yaml, json, mermaid
+  content: z.string().default(""),
+  content_hash: z.string().default(""),
+});
+\`\`\`
+
+## 4. Schema Map
+
+\`\`\`typescript
+export const NodeSchemaMap: Record<NodeType, z.ZodType> = {
+  BusinessCapability: BusinessCapabilitySchema,
+  BusinessService: BusinessServiceSchema,
+  // ... all 9 types
+};
+\`\`\`
+
+Used by API routes to validate incoming data against the correct schema based on \`nodeType\`.
+
+## 5. Relationship Types & Allowed Matrix
+
+\`\`\`typescript
+export const RelationshipType = z.enum([
+  "COMPOSES", "REALIZES", "SERVES", "ACCESSES", "FLOWS_TO",
+  "TRIGGERS", "DEPENDS_ON", "SPECIFIED_BY", "TESTED_BY", "IMPLEMENTED_BY",
+]);
+
+export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, NodeType]>> = {
+  COMPOSES: [
+    ["BusinessCapability", "BusinessCapability"],
+    ["BusinessProcess", "ProcessStep"],
+    ["Application", "ApplicationComponent"],
+  ],
+  REALIZES: [
+    ["BusinessService", "BusinessCapability"],
+    ["Application", "BusinessService"],
+    ["ApplicationComponent", "BusinessProcess"],
+    ["API", "ApplicationComponent"],
+  ],
+  SERVES: [
+    ["BusinessService", "BusinessCapability"],
+    ["API", "BusinessService"],
+  ],
+  ACCESSES: [
+    ["BusinessProcess", "DataEntity"],
+    ["ProcessStep", "DataEntity"],
+    ["API", "DataEntity"],
+  ],
+  FLOWS_TO: [
+    ["ProcessStep", "ProcessStep"],
+    ["Application", "Application"],
+    ["ApplicationComponent", "ApplicationComponent"],
+  ],
+  TRIGGERS: [
+    ["ProcessStep", "BusinessProcess"],
+    ["API", "BusinessProcess"],
+  ],
+  DEPENDS_ON: [
+    ["Application", "Application"],
+    ["ApplicationComponent", "ApplicationComponent"],
+    ["API", "API"],
+  ],
+  SPECIFIED_BY: [/* all 9 node types → SpecDocument */],
+  TESTED_BY: [/* all except SpecDocument → SpecDocument */],
+  IMPLEMENTED_BY: [/* all except SpecDocument → SpecDocument */],
+};
+\`\`\`
+
+## 6. Validation Helper
+
+\`\`\`typescript
+export function isRelationshipAllowed(
+  type: RelationshipType,
+  sourceType: NodeType,
+  targetType: NodeType
+): boolean {
+  const allowed = ALLOWED_RELATIONSHIPS[type];
+  return allowed.some(([s, t]) => s === sourceType && t === targetType);
+}
+\`\`\`
+
+## 7. Color Maps
+
+\`\`\`typescript
+export const NODE_TYPE_COLORS: Record<NodeType, string> = {
+  BusinessCapability: "#2563eb",    // blue-600
+  BusinessService: "#3b82f6",       // blue-500
+  BusinessProcess: "#60a5fa",       // blue-400
+  ProcessStep: "#93c5fd",           // blue-300
+  DataEntity: "#a855f7",            // purple-500
+  Application: "#059669",           // emerald-600
+  ApplicationComponent: "#10b981",  // emerald-500
+  API: "#34d399",                   // emerald-400
+  SpecDocument: "#f59e0b",          // amber-500
+};
+\`\`\`
+
+Used by GraphExplorer for node rendering colors.
+
+---
+*AI Agent Guidance: This file is the type system's single source of truth. Use \`import { z } from "zod/v4"\` (not "zod"). The ALLOWED_RELATIONSHIPS matrix must be checked before creating any relationship. NodeSchemaMap enables dynamic validation by nodeType. All schemas use \`.default()\` for optional fields to ensure clean serialization.*`,
+      content_hash: "",
+      tags: ["implementation", "types", "zod", "schemas"],
     });
 
     const uiSpecDoc = makeNode("SpecDocument", "spec", {
@@ -1220,6 +1828,7 @@ The ACCESSES relationship has an additional \`access_type\` property:
       // Spec layer
       architectureSpec, dataModelSpec, apiSpec, deploymentSpec,
       workflowSpec, stateSpec, businessRulesSpec, uiSpecDoc,
+      driverImplSpec, nodeCrudImplSpec, typeSystemImplSpec,
     ];
 
     for (const node of allNodes) {
@@ -1290,10 +1899,10 @@ The ACCESSES relationship has an additional \`access_type\` property:
       // Step flows
       { type: "FLOWS_TO", from: stepCreateNode.id, to: stepUpdateNode.id },
 
+      // Triggers
+      { type: "TRIGGERS", from: stepExportGraph.id, to: graphTraversal.id },
+
       // Data access
-      { type: "ACCESSES", from: neo4jDriver.id, to: graphNodeEntity.id, props: { access_type: "read_write" } },
-      { type: "ACCESSES", from: neo4jDriver.id, to: relationshipEntity.id, props: { access_type: "read_write" } },
-      { type: "ACCESSES", from: neo4jDriver.id, to: specDocEntity.id, props: { access_type: "read_write" } },
       { type: "ACCESSES", from: nodesListAPI.id, to: graphNodeEntity.id, props: { access_type: "read_write" } },
       { type: "ACCESSES", from: nodeCrudAPI.id, to: graphNodeEntity.id, props: { access_type: "read_write" } },
       { type: "ACCESSES", from: nodeSpecsAPI.id, to: specDocEntity.id, props: { access_type: "read_write" } },
@@ -1324,6 +1933,15 @@ The ACCESSES relationship has an additional \`access_type\` property:
       { type: "SPECIFIED_BY", from: graphExplorerComp.id, to: uiSpecDoc.id },
       { type: "SPECIFIED_BY", from: graphModeling.id, to: businessRulesSpec.id },
       { type: "SPECIFIED_BY", from: relationshipEntity.id, to: businessRulesSpec.id },
+
+      // Implementation specs for key components
+      { type: "IMPLEMENTED_BY", from: neo4jDriver.id, to: driverImplSpec.id },
+      { type: "IMPLEMENTED_BY", from: neo4jDriver.id, to: nodeCrudImplSpec.id },
+      { type: "IMPLEMENTED_BY", from: neo4jDriver.id, to: typeSystemImplSpec.id },
+
+      // Tested by specs
+      { type: "TESTED_BY", from: validationEngine.id, to: businessRulesSpec.id },
+      { type: "TESTED_BY", from: neo4jDriver.id, to: apiSpec.id },
     ];
 
     for (const rel of rels) {

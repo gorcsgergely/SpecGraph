@@ -77,7 +77,7 @@ export const VALIDATION_RULES: ValidationRule[] = [
       MATCH (n:DataEntity) WHERE n.valid_to IS NULL
       AND NOT EXISTS {
         MATCH (n)-[:SPECIFIED_BY]->(s:SpecDocument)
-        WHERE s.valid_to IS NULL AND s.spec_type IN ['erd', 'data_model']
+        WHERE s.valid_to IS NULL AND s.spec_type = 'data_model'
       }
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
@@ -100,5 +100,53 @@ export const VALIDATION_RULES: ValidationRule[] = [
       AND n.acceptance_criteria = ''
       AND NOT labels(n)[0] IN ['SpecDocument', 'DataEntity']
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "capability_no_app_chain",
+    severity: "warning",
+    description: "Capability not reachable from any application",
+    cypher: `
+      MATCH (cap:BusinessCapability) WHERE cap.valid_to IS NULL
+      AND NOT EXISTS {
+        MATCH (:Application)-[:REALIZES]->(:BusinessService)-[:REALIZES]->(cap)
+      }
+      RETURN cap.id as nodeId, cap.name as nodeName, labels(cap)[0] as nodeType`,
+  },
+  {
+    id: "circular_dependency",
+    severity: "error",
+    description: "DEPENDS_ON chain forms a cycle",
+    cypher: `
+      MATCH (n) WHERE n.valid_to IS NULL
+      AND EXISTS {
+        MATCH p = (n)-[:DEPENDS_ON*2..]->(n)
+        WHERE ALL(r IN relationships(p) WHERE r.valid_to IS NULL)
+        AND ALL(m IN nodes(p) WHERE m.valid_to IS NULL)
+      }
+      RETURN DISTINCT n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "deprecated_in_use",
+    severity: "warning",
+    description: "Deprecated node has active incoming relationships from non-deprecated nodes",
+    cypher: `
+      MATCH (source)-[r]->(target)
+      WHERE target.valid_to IS NULL AND target.status = 'deprecated'
+      AND r.valid_to IS NULL
+      AND source.valid_to IS NULL AND source.status <> 'deprecated'
+      AND type(r) IN ['REALIZES', 'SERVES', 'COMPOSES']
+      RETURN DISTINCT target.id as nodeId, target.name as nodeName, labels(target)[0] as nodeType`,
+  },
+  {
+    id: "spec_no_parent",
+    severity: "warning",
+    description: "SpecDocument has no incoming SPECIFIED_BY, TESTED_BY, or IMPLEMENTED_BY",
+    cypher: `
+      MATCH (s:SpecDocument) WHERE s.valid_to IS NULL
+      AND NOT EXISTS {
+        MATCH ()-[r:SPECIFIED_BY|TESTED_BY|IMPLEMENTED_BY]->(s)
+        WHERE r.valid_to IS NULL
+      }
+      RETURN s.id as nodeId, s.name as nodeName, labels(s)[0] as nodeType`,
   },
 ];
