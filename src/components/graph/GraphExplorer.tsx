@@ -164,18 +164,24 @@ export function GraphExplorer({
   }, []);
 
   // Initialize/update node positions only when the set of node IDs changes
+  const prevIdStrRef = useRef("");
   useEffect(() => {
     const newIdStr = nodes.map((n) => n.id).sort().join(",");
 
-    // If same nodes and we have cached positions, restore from cache
+    // Same node IDs as current — skip (prevents simulation restart on unrelated re-renders)
+    if (newIdStr === prevIdStrRef.current) return;
+
+    // Cross-mount cache: restore positions if navigating back to the same node set
     if (newIdStr === layoutCache.nodeIdStr && layoutCache.nodes.length > 0) {
       nodesRef.current = layoutCache.nodes;
       panRef.current = layoutCache.pan;
       zoomRef.current = layoutCache.zoom;
       iterationRef.current = layoutCache.settled ? 300 : iterationRef.current;
+      prevIdStrRef.current = newIdStr;
       return;
     }
 
+    prevIdStrRef.current = newIdStr;
     layoutCache.nodeIdStr = newIdStr;
 
     const canvas = canvasRef.current;
