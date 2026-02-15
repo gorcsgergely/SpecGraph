@@ -15,8 +15,20 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Plus, Search } from "lucide-react";
-import Link from "next/link";
 import type { NodeType as NodeTypeEnum } from "@/lib/types/graph";
+
+const ALL_REL_TYPES = new Set([
+  "COMPOSES",
+  "REALIZES",
+  "SERVES",
+  "ACCESSES",
+  "FLOWS_TO",
+  "TRIGGERS",
+  "DEPENDS_ON",
+  "SPECIFIED_BY",
+  "TESTED_BY",
+  "IMPLEMENTED_BY",
+]);
 
 // Persist selected node across page navigations
 let cachedSelectedNodeId: string | null = null;
@@ -34,6 +46,21 @@ function GraphPageInner() {
   const [showCreate, setShowCreate] = useState(
     searchParams.get("create") === "true"
   );
+  const [visibleRelTypes, setVisibleRelTypes] = useState<Set<string>>(
+    () => new Set(ALL_REL_TYPES)
+  );
+
+  const handleRelTypeToggle = useCallback((relType: string) => {
+    setVisibleRelTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(relType)) {
+        next.delete(relType);
+      } else {
+        next.add(relType);
+      }
+      return next;
+    });
+  }, []);
 
   const queryParams: Record<string, string> = {};
   if (filters.nodeType) queryParams.nodeType = filters.nodeType;
@@ -53,7 +80,12 @@ function GraphPageInner() {
   const { data: rels } = useAllRelationships();
   const nodeIds = new Set(nodes.map((n) => n.id));
   const allRelationships = (rels || [])
-    .filter((r) => nodeIds.has(r.source_id) && nodeIds.has(r.target_id))
+    .filter(
+      (r) =>
+        nodeIds.has(r.source_id) &&
+        nodeIds.has(r.target_id) &&
+        visibleRelTypes.has(r.type)
+    )
     .map((r) => ({
       id: r.id || "",
       type: r.type,
@@ -83,7 +115,12 @@ function GraphPageInner() {
 
   return (
     <div className="flex h-full">
-      <GraphFilters filters={filters} onFilterChange={setFilters} />
+      <GraphFilters
+        filters={filters}
+        onFilterChange={setFilters}
+        visibleRelTypes={visibleRelTypes}
+        onRelTypeToggle={handleRelTypeToggle}
+      />
       <div className="flex-1 flex flex-col">
         <div className="flex items-center gap-2 p-3 border-b">
           <div className="relative flex-1 max-w-sm">

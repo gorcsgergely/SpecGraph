@@ -8,9 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { NODE_TYPE_COLORS, type NodeType, type NodeLayer } from "@/lib/types/graph";
+import { NODE_TYPE_COLORS, type NodeType, type NodeLayer, type RelationshipType } from "@/lib/types/graph";
 import { X } from "lucide-react";
 
 const NODE_TYPES: NodeType[] = [
@@ -28,6 +28,19 @@ const NODE_TYPES: NodeType[] = [
 const LAYERS: NodeLayer[] = ["business", "application", "spec"];
 const STATUSES = ["draft", "active", "deprecated", "archived"];
 
+const RELATIONSHIP_TYPES: RelationshipType[] = [
+  "COMPOSES",
+  "REALIZES",
+  "SERVES",
+  "ACCESSES",
+  "FLOWS_TO",
+  "TRIGGERS",
+  "DEPENDS_ON",
+  "SPECIFIED_BY",
+  "TESTED_BY",
+  "IMPLEMENTED_BY",
+];
+
 interface GraphFiltersProps {
   filters: {
     nodeType?: string;
@@ -35,13 +48,20 @@ interface GraphFiltersProps {
     status?: string;
   };
   onFilterChange: (filters: Record<string, string | undefined>) => void;
+  visibleRelTypes?: Set<string>;
+  onRelTypeToggle?: (relType: string) => void;
 }
 
-export function GraphFilters({ filters, onFilterChange }: GraphFiltersProps) {
+export function GraphFilters({
+  filters,
+  onFilterChange,
+  visibleRelTypes,
+  onRelTypeToggle,
+}: GraphFiltersProps) {
   const hasFilters = filters.nodeType || filters.layer || filters.status;
 
   return (
-    <div className="p-4 space-y-4 border-r w-56 bg-muted/20">
+    <div className="p-4 space-y-4 border-r w-56 bg-muted/20 overflow-y-auto">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-sm">Filters</h3>
         {hasFilters && (
@@ -128,6 +148,30 @@ export function GraphFilters({ filters, onFilterChange }: GraphFiltersProps) {
           </SelectContent>
         </Select>
       </div>
+
+      {visibleRelTypes && onRelTypeToggle ? (
+        <div className="space-y-2 pt-2 border-t">
+          <Label className="text-xs">Relationships</Label>
+          <div className="space-y-1.5">
+            {RELATIONSHIP_TYPES.map((rt) => (
+              <div key={rt} className="flex items-center gap-2">
+                <Checkbox
+                  id={`rel-${rt}`}
+                  checked={visibleRelTypes.has(rt)}
+                  onCheckedChange={() => onRelTypeToggle(rt)}
+                  className="h-3.5 w-3.5"
+                />
+                <label
+                  htmlFor={`rel-${rt}`}
+                  className="text-[10px] text-muted-foreground cursor-pointer leading-none"
+                >
+                  {rt}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="pt-2 border-t">
         <Label className="text-xs text-muted-foreground">Legend</Label>
