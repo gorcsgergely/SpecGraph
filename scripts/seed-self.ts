@@ -56,9 +56,13 @@ async function seed() {
       "BusinessProcess",
       "ProcessStep",
       "DataEntity",
+      "GlossaryTerm",
       "Application",
       "ApplicationComponent",
       "API",
+      "DataStore",
+      "DataObject",
+      "DataField",
       "SpecDocument",
     ];
     for (const label of labels) {
@@ -91,11 +95,11 @@ async function seed() {
 
     const graphModeling = makeNode("BusinessCapability", "business", {
       name: "Knowledge Graph Modeling",
-      description: "Capability to create, read, update, and soft-delete nodes and relationships in a typed knowledge graph with 9 node types and 10 relationship types",
+      description: "Capability to create, read, update, and soft-delete nodes and relationships in a typed knowledge graph with 13 node types and 11 relationship types",
       level: 1,
       domain: "Architecture Governance",
       owner: "Platform Team",
-      acceptance_criteria: "All 9 node types can be CRUD-managed; relationships validated against type matrix; copy-on-write versioning on updates",
+      acceptance_criteria: "All 13 node types can be CRUD-managed; relationships validated against type matrix; copy-on-write versioning on updates",
       business_rules: "Nodes have unique IDs; updates create new versions; deletes are soft (valid_to set); relationship types checked against ALLOWED_RELATIONSHIPS",
       regulatory_refs: [],
       tags: ["graph", "modeling", "crud"],
@@ -325,6 +329,66 @@ async function seed() {
       validation_rules: "spec_type must be valid enum; format must be valid enum; content is free-form string",
       code_hints: "Neo4j node with label SpecDocument; 15 template types auto-fill from src/lib/templates/",
       tags: ["spec", "document", "content"],
+    });
+
+    // ── Glossary Terms ──
+    console.log("Creating glossary terms...");
+
+    const graphNodeTerm = makeNode("GlossaryTerm", "business", {
+      name: "Graph Node",
+      description: "A typed vertex in the SpecGraph knowledge graph representing an enterprise architecture artifact",
+      canonical_name: "graphNode",
+      domain: "Architecture Governance",
+      owner: "Platform Team",
+      steward: "Platform Team",
+      synonyms: ["node", "vertex", "artifact", "element"],
+      definition: "A graph node is the fundamental unit of the knowledge graph. Each node belongs to one of 10 types (BusinessCapability, BusinessService, BusinessProcess, ProcessStep, DataEntity, GlossaryTerm, Application, ApplicationComponent, API, SpecDocument) and has a layer, temporal versioning (valid_from/valid_to), and type-specific properties.",
+      data_type: "object",
+      allowed_values: "13 node types across 3 layers",
+      gdpr_category: "none",
+      privacy_class: "internal",
+      dq_rules: "Must have unique UUID id; must belong to exactly one type and layer; must have valid_from timestamp",
+      regulatory_refs: [],
+      code_hints: "Type: GraphNode (union type in src/lib/types/graph.ts). Neo4j label = nodeType. CRUD via src/lib/neo4j/queries/nodes.ts",
+      tags: ["core", "metamodel", "graph"],
+    });
+
+    const cowVersionTerm = makeNode("GlossaryTerm", "business", {
+      name: "Copy-on-Write Version",
+      description: "The versioning strategy used by SpecGraph where updates create new nodes rather than mutating existing ones",
+      canonical_name: "cowVersion",
+      domain: "Architecture Governance",
+      owner: "Platform Team",
+      steward: "Platform Team",
+      synonyms: ["CoW version", "temporal version", "node version", "immutable version"],
+      definition: "When a node is updated, the original node's valid_to is set to the current timestamp (soft-closing it), and a new node is created with an incremented version number and new UUID. All active relationships are migrated from the old node to the new node. This preserves complete history and enables time-travel queries.",
+      data_type: "integer",
+      allowed_values: "Positive integers starting from 1, monotonically increasing",
+      gdpr_category: "none",
+      privacy_class: "internal",
+      dq_rules: "Version must be positive integer; new version = old version + 1; old node must have valid_to set",
+      regulatory_refs: [],
+      code_hints: "Implemented in updateNode() in src/lib/neo4j/queries/nodes.ts. Key fields: version (int), valid_from (datetime), valid_to (datetime nullable).",
+      tags: ["versioning", "temporal", "core"],
+    });
+
+    const relTypeTerm = makeNode("GlossaryTerm", "business", {
+      name: "Relationship Type",
+      description: "A typed directed edge in the knowledge graph connecting two nodes according to the allowed relationship matrix",
+      canonical_name: "relationshipType",
+      domain: "Architecture Governance",
+      owner: "Platform Team",
+      steward: "Platform Team",
+      synonyms: ["edge type", "rel type", "connection type"],
+      definition: "One of 11 allowed relationship types (COMPOSES, REALIZES, SERVES, ACCESSES, FLOWS_TO, TRIGGERS, DEPENDS_ON, ASSOCIATED_WITH, SPECIFIED_BY, TESTED_BY, IMPLEMENTED_BY) that connect nodes. Each type has a matrix of allowed source→target node type pairs defined in ALLOWED_RELATIONSHIPS.",
+      data_type: "enum",
+      allowed_values: "COMPOSES, REALIZES, SERVES, ACCESSES, FLOWS_TO, TRIGGERS, DEPENDS_ON, ASSOCIATED_WITH, SPECIFIED_BY, TESTED_BY, IMPLEMENTED_BY",
+      gdpr_category: "none",
+      privacy_class: "internal",
+      dq_rules: "Must be one of the 11 enum values; source and target types must match ALLOWED_RELATIONSHIPS matrix",
+      regulatory_refs: [],
+      code_hints: "Type: RelationshipType (Zod enum in src/lib/types/graph.ts). Validation: isRelationshipAllowed(type, sourceType, targetType)",
+      tags: ["core", "metamodel", "relationship"],
     });
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -673,7 +737,7 @@ All nodes and relationships carry \`valid_from\` and \`valid_to\` timestamps:
 
     const dataModelSpec = makeNode("SpecDocument", "spec", {
       name: "SpecGraph Data Model",
-      description: "Neo4j graph schema with 9 node types, 10 relationship types, and temporal versioning",
+      description: "Neo4j graph schema with 13 node types, 11 relationship types, and temporal versioning",
       spec_type: "data_model",
       format: "markdown",
       content: `# Data Model Specification — SpecGraph
@@ -1692,7 +1756,7 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
     ["ApplicationComponent", "ApplicationComponent"],
     ["API", "API"],
   ],
-  SPECIFIED_BY: [/* all 9 node types → SpecDocument */],
+  SPECIFIED_BY: [/* all 13 node types → SpecDocument */],
   TESTED_BY: [/* all except SpecDocument → SpecDocument */],
   IMPLEMENTED_BY: [/* all except SpecDocument → SpecDocument */],
 };
@@ -1830,7 +1894,7 @@ Used by GraphExplorer for node rendering colors.
 
 | ID | Requirement | Priority | Rationale | Status |
 |----|------------|----------|-----------|--------|
-| FR-001 | The system shall support 9 node types across 3 layers (Business, Application, Spec) | Must | ArchiMate-inspired metamodel requires typed nodes with layer assignment | Active |
+| FR-001 | The system shall support 13 node types across 3 layers (Business, Application, Spec) | Must | ArchiMate-inspired metamodel requires typed nodes with layer assignment | Active |
 | FR-002 | The system shall validate relationships against an allowed type matrix before creation | Must | Prevents invalid architecture connections that would corrupt the graph | Active |
 | FR-003 | The system shall preserve full version history via copy-on-write updates | Must | Architects need to understand how the architecture evolved over time | Active |
 | FR-004 | The system shall provide interactive graph visualization with filtering and navigation | Must | Visual exploration is the primary way architects understand complex architectures | Active |
@@ -1953,7 +2017,7 @@ And it includes node details, relationship tables, spec content, and Mermaid dia
 - PUT /api/nodes/:nodeId — copy-on-write update with relationship migration
 - DELETE /api/nodes/:nodeId — soft-delete (set valid_to) with relationship closure
 - Temporal queries via asOf parameter
-- Zod schema validation for all 9 node types
+- Zod schema validation for all 13 node types
 
 ### Out of Scope
 
@@ -2093,6 +2157,42 @@ npm test -- --grep "copy-on-write"
 
     // ── Create all nodes ──
     console.log("Inserting nodes...");
+    // ── Physical Data Layer ──
+    console.log("Creating physical data layer...");
+
+    const neo4jDataStore = makeNode("DataStore", "data", {
+      name: "SpecGraph Neo4j",
+      description: "Neo4j 5 Community graph database storing all architecture knowledge graph data — nodes, relationships, and temporal versions",
+      store_type: "database",
+      technology: "Neo4j 5 Community (Docker)",
+      environment: "local development",
+      connection_info: "bolt://localhost:7687, credentials: neo4j/specgraph-dev",
+      code_hints: "Docker Compose service. Driver singleton in src/lib/neo4j/driver.ts. 13 node labels, 11 relationship types.",
+      tags: ["neo4j", "graph-database", "primary"],
+    });
+
+    const graphNodeLabel = makeNode("DataObject", "data", {
+      name: "Graph Node Labels",
+      description: "Neo4j node labels representing 13 architecture artifact types — each label has unique ID constraint and valid_to/status/name indexes",
+      object_type: "collection",
+      physical_name: "BusinessCapability|BusinessService|...|DataStore|DataObject|DataField|SpecDocument",
+      schema_definition: "Base: id UUID, nodeType, layer, name, description, status, valid_from, valid_to, version, created_by, updated_at, tags[]. Plus type-specific properties per label.",
+      format: "json",
+      code_hints: "13 labels defined in NodeType enum (src/lib/types/graph.ts). CRUD via src/lib/neo4j/queries/nodes.ts",
+      tags: ["labels", "nodes", "neo4j"],
+    });
+
+    const graphRelTypes = makeNode("DataObject", "data", {
+      name: "Relationship Types",
+      description: "Neo4j relationship types — 11 directed edge types validated against ALLOWED_RELATIONSHIPS matrix",
+      object_type: "collection",
+      physical_name: "COMPOSES|REALIZES|SERVES|ACCESSES|FLOWS_TO|TRIGGERS|DEPENDS_ON|ASSOCIATED_WITH|SPECIFIED_BY|TESTED_BY|IMPLEMENTED_BY",
+      schema_definition: "id UUID, type, source_id, target_id, valid_from, valid_to, created_by, notes, access_type (optional for ACCESSES)",
+      format: "json",
+      code_hints: "11 types in RelationshipType enum. Validated via isRelationshipAllowed() against ALLOWED_RELATIONSHIPS matrix",
+      tags: ["relationships", "edges", "neo4j"],
+    });
+
     const allNodes = [
       // Business layer
       archMgmt, graphModeling, specMgmt, graphExploration, qualityAssurance, aiExport,
@@ -2100,10 +2200,14 @@ npm test -- --grep "copy-on-write"
       nodeManagement, specAuthoring, graphTraversal,
       stepCreateNode, stepUpdateNode, stepAttachSpec, stepSearchGraph, stepExportGraph,
       graphNodeEntity, relationshipEntity, specDocEntity,
+      // Glossary terms
+      graphNodeTerm, cowVersionTerm, relTypeTerm,
       // Application layer
       specGraphApp,
       appRouter, neo4jDriver, graphExplorerComp, validationEngine, exportEngine, templateRegistry,
       nodesListAPI, nodeCrudAPI, nodeSpecsAPI, searchAPI, traverseAPI, validationAPI, exportAPI, schemaAPI,
+      // Physical data layer
+      neo4jDataStore, graphNodeLabel, graphRelTypes,
       // Spec layer
       architectureSpec, dataModelSpec, apiSpec, deploymentSpec,
       workflowSpec, stateSpec, businessRulesSpec, uiSpecDoc,
@@ -2226,6 +2330,24 @@ npm test -- --grep "copy-on-write"
       { type: "TESTED_BY", from: neo4jDriver.id, to: apiSpec.id },
       { type: "TESTED_BY", from: nodeCrudAPI.id, to: nodeCrudTestSpec.id },
       { type: "TESTED_BY", from: neo4jDriver.id, to: nodeCrudTestSpec.id },
+
+      // Physical data layer relationships
+      { type: "COMPOSES", from: specGraphApp.id, to: neo4jDataStore.id },
+      { type: "COMPOSES", from: neo4jDataStore.id, to: graphNodeLabel.id },
+      { type: "COMPOSES", from: neo4jDataStore.id, to: graphRelTypes.id },
+      { type: "REALIZES", from: graphNodeLabel.id, to: graphNodeEntity.id },
+      { type: "REALIZES", from: graphRelTypes.id, to: relationshipEntity.id },
+      { type: "DEPENDS_ON", from: neo4jDriver.id, to: neo4jDataStore.id },
+
+      // Glossary ASSOCIATED_WITH relationships
+      { type: "ASSOCIATED_WITH", from: graphNodeTerm.id, to: graphNodeEntity.id },
+      { type: "ASSOCIATED_WITH", from: graphNodeTerm.id, to: graphModeling.id },
+      { type: "ASSOCIATED_WITH", from: graphNodeTerm.id, to: nodeManagement.id },
+      { type: "ASSOCIATED_WITH", from: cowVersionTerm.id, to: graphNodeEntity.id },
+      { type: "ASSOCIATED_WITH", from: cowVersionTerm.id, to: nodeManagement.id },
+      { type: "ASSOCIATED_WITH", from: cowVersionTerm.id, to: neo4jDriver.id },
+      { type: "ASSOCIATED_WITH", from: relTypeTerm.id, to: relationshipEntity.id },
+      { type: "ASSOCIATED_WITH", from: relTypeTerm.id, to: graphModeling.id },
     ];
 
     for (const rel of rels) {

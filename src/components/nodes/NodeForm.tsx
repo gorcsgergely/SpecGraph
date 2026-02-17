@@ -23,9 +23,13 @@ const NODE_TYPES: NodeType[] = [
   "BusinessProcess",
   "ProcessStep",
   "DataEntity",
+  "GlossaryTerm",
   "Application",
   "ApplicationComponent",
   "API",
+  "DataStore",
+  "DataObject",
+  "DataField",
   "SpecDocument",
 ];
 
@@ -73,6 +77,21 @@ const TYPE_FIELDS: Record<string, Array<{ name: string; type: "text" | "textarea
     { name: "validation_rules", type: "textarea", label: "Validation Rules" },
     { name: "code_hints", type: "textarea", label: "Code Hints" },
   ],
+  GlossaryTerm: [
+    { name: "canonical_name", type: "text", label: "Canonical Name" },
+    { name: "domain", type: "text", label: "Domain" },
+    { name: "owner", type: "text", label: "Owner" },
+    { name: "steward", type: "text", label: "Steward" },
+    { name: "synonyms", type: "tags", label: "Synonyms (comma-separated)" },
+    { name: "definition", type: "textarea", label: "Definition" },
+    { name: "data_type", type: "text", label: "Data Type" },
+    { name: "allowed_values", type: "text", label: "Allowed Values" },
+    { name: "gdpr_category", type: "select", label: "GDPR Category", options: ["none", "personal", "sensitive", "special_category"] },
+    { name: "privacy_class", type: "select", label: "Privacy Class", options: ["public", "internal", "confidential", "restricted"] },
+    { name: "dq_rules", type: "textarea", label: "Data Quality Rules" },
+    { name: "regulatory_refs", type: "tags", label: "Regulatory References (comma-separated)" },
+    { name: "code_hints", type: "textarea", label: "Code Hints" },
+  ],
   Application: [
     { name: "app_type", type: "select", label: "App Type", options: ["custom", "cots", "saas", "legacy"] },
     { name: "deployment", type: "text", label: "Deployment" },
@@ -102,6 +121,30 @@ const TYPE_FIELDS: Record<string, Array<{ name: string; type: "text" | "textarea
     { name: "error_codes", type: "textarea", label: "Error Codes" },
     { name: "code_hints", type: "textarea", label: "Code Hints" },
   ],
+  DataStore: [
+    { name: "store_type", type: "select", label: "Store Type", options: ["database", "cache", "message_broker", "file_store", "data_lake"] },
+    { name: "technology", type: "text", label: "Technology" },
+    { name: "environment", type: "text", label: "Environment" },
+    { name: "connection_info", type: "text", label: "Connection Info" },
+    { name: "code_hints", type: "textarea", label: "Code Hints" },
+  ],
+  DataObject: [
+    { name: "object_type", type: "select", label: "Object Type", options: ["table", "view", "collection", "topic", "type", "class", "schema", "payload"] },
+    { name: "physical_name", type: "text", label: "Physical Name" },
+    { name: "schema_definition", type: "textarea", label: "Schema Definition" },
+    { name: "format", type: "text", label: "Format" },
+    { name: "code_hints", type: "textarea", label: "Code Hints" },
+  ],
+  DataField: [
+    { name: "field_type", type: "text", label: "Field Type" },
+    { name: "physical_name", type: "text", label: "Physical Name" },
+    { name: "nullable", type: "boolean", label: "Nullable" },
+    { name: "default_value", type: "text", label: "Default Value" },
+    { name: "constraints", type: "text", label: "Constraints" },
+    { name: "pii", type: "boolean", label: "Contains PII" },
+    { name: "sensitivity", type: "text", label: "Sensitivity" },
+    { name: "code_hints", type: "textarea", label: "Code Hints" },
+  ],
   SpecDocument: [
     { name: "spec_type", type: "select", label: "Spec Type", options: ["openapi", "sequence", "test_spec", "implementation_spec", "compliance_security", "architecture", "data_model", "state_management", "workflow", "api_internal", "api_external", "ui_spec", "business_rules", "deployment"] },
     { name: "format", type: "select", label: "Format", options: ["markdown", "yaml", "json", "mermaid"] },
@@ -115,9 +158,13 @@ const LAYER_MAP: Record<string, string> = {
   BusinessProcess: "business",
   ProcessStep: "business",
   DataEntity: "business",
+  GlossaryTerm: "business",
   Application: "application",
   ApplicationComponent: "application",
   API: "application",
+  DataStore: "data",
+  DataObject: "data",
+  DataField: "data",
   SpecDocument: "spec",
 };
 
@@ -180,6 +227,12 @@ export function NodeForm({ initialData, nodeId, onSuccess }: NodeFormProps) {
         channel: typeof data.channel === "string"
           ? (data.channel as string).split(",").map((t: string) => t.trim()).filter(Boolean)
           : data.channel || undefined,
+        synonyms: typeof data.synonyms === "string"
+          ? (data.synonyms as string).split(",").map((t: string) => t.trim()).filter(Boolean)
+          : data.synonyms || undefined,
+        regulatory_refs: typeof data.regulatory_refs === "string"
+          ? (data.regulatory_refs as string).split(",").map((t: string) => t.trim()).filter(Boolean)
+          : data.regulatory_refs || undefined,
       };
 
       const url = nodeId ? `/api/nodes/${nodeId}` : "/api/nodes";
@@ -266,6 +319,7 @@ export function NodeForm({ initialData, nodeId, onSuccess }: NodeFormProps) {
         <div key={field.name} className="space-y-2">
           <Label>{field.label}</Label>
           {field.type === "text" && <Input {...register(field.name)} />}
+          {field.type === "tags" && <Input {...register(field.name)} placeholder="value1, value2" />}
           {field.type === "number" && (
             <Input type="number" {...register(field.name, { valueAsNumber: true })} />
           )}

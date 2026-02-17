@@ -6,9 +6,13 @@ const NODE_LABELS = [
   "BusinessProcess",
   "ProcessStep",
   "DataEntity",
+  "GlossaryTerm",
   "Application",
   "ApplicationComponent",
   "API",
+  "DataStore",
+  "DataObject",
+  "DataField",
   "SpecDocument",
 ];
 
@@ -34,11 +38,17 @@ export async function initializeSchema(): Promise<void> {
   }
 
   // Full-text search index across all node types
+  // Drop and recreate to include GlossaryTerm fields
+  try {
+    await executeQuery(`DROP INDEX node_fulltext IF EXISTS`);
+  } catch {
+    // Index may not exist
+  }
   try {
     await executeQuery(
       `CREATE FULLTEXT INDEX node_fulltext IF NOT EXISTS
-       FOR (n:BusinessCapability|BusinessService|BusinessProcess|ProcessStep|DataEntity|Application|ApplicationComponent|API|SpecDocument)
-       ON EACH [n.name, n.description, n.tags]`
+       FOR (n:BusinessCapability|BusinessService|BusinessProcess|ProcessStep|DataEntity|GlossaryTerm|Application|ApplicationComponent|API|DataStore|DataObject|DataField|SpecDocument)
+       ON EACH [n.name, n.description, n.tags, n.canonical_name, n.synonyms, n.definition, n.physical_name]`
     );
   } catch {
     // Index may already exist

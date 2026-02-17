@@ -29,6 +29,7 @@ interface GraphNode {
   nodeType: NodeType;
   layer: string;
   status: string;
+  subtype?: string;
 }
 
 interface GraphRelationship {
@@ -100,6 +101,7 @@ export function GraphExplorer({
     nodeType: NodeType;
     status: string;
     degree: number;
+    subtype?: string;
   } | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [contextMenu, setContextMenu] = useState<{
@@ -457,11 +459,44 @@ export function GraphExplorer({
         applyHoverGlow(ctx, color);
       }
 
-      // Node circle
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
+      // Node shape
+      if (node.nodeType === "SpecDocument") {
+        // Spec nodes: outlined ring with light fill — visually distinct "document"
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = color + "18";
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        // Inner document icon (small page shape)
+        const s = r * 0.38;
+        ctx.beginPath();
+        ctx.moveTo(node.x - s, node.y - s * 1.2);
+        ctx.lineTo(node.x + s * 0.5, node.y - s * 1.2);
+        ctx.lineTo(node.x + s, node.y - s * 0.7);
+        ctx.lineTo(node.x + s, node.y + s * 1.2);
+        ctx.lineTo(node.x - s, node.y + s * 1.2);
+        ctx.closePath();
+        ctx.fillStyle = color + "40";
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Dog-ear fold
+        ctx.beginPath();
+        ctx.moveTo(node.x + s * 0.5, node.y - s * 1.2);
+        ctx.lineTo(node.x + s * 0.5, node.y - s * 0.7);
+        ctx.lineTo(node.x + s, node.y - s * 0.7);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
 
       clearGlow(ctx);
 
@@ -510,7 +545,10 @@ export function GraphExplorer({
 
         ctx.font = "9px sans-serif";
         ctx.fillStyle = "#64748b";
-        ctx.fillText(node.nodeType, node.x, node.y + r + 26);
+        const subtitle = node.subtype
+          ? `${node.nodeType === "SpecDocument" ? "Spec" : node.nodeType} – ${node.subtype.replace(/_/g, " ")}`
+          : node.nodeType;
+        ctx.fillText(subtitle, node.x, node.y + r + 26);
       } else if (!dimmed && isHovered) {
         // Always show label on hover even at low zoom
         ctx.font = "bold 11px sans-serif";
@@ -626,6 +664,7 @@ export function GraphExplorer({
           nodeType: hovered.nodeType,
           status: hovered.status,
           degree: hovered.degree,
+          subtype: hovered.subtype,
         });
         setTooltipPos(mouseScreenRef.current);
       } else if (hovered) {

@@ -25,10 +25,27 @@ const ALL_REL_TYPES = new Set([
   "FLOWS_TO",
   "TRIGGERS",
   "DEPENDS_ON",
+  "ASSOCIATED_WITH",
   "SPECIFIED_BY",
   "TESTED_BY",
   "IMPLEMENTED_BY",
 ]);
+
+const ALL_NODE_TYPES = [
+  "BusinessCapability",
+  "BusinessService",
+  "BusinessProcess",
+  "ProcessStep",
+  "DataEntity",
+  "GlossaryTerm",
+  "Application",
+  "ApplicationComponent",
+  "API",
+  "DataStore",
+  "DataObject",
+  "DataField",
+  "SpecDocument",
+];
 
 // Persist selected node across page navigations
 let cachedSelectedNodeId: string | null = null;
@@ -37,8 +54,6 @@ function GraphPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [filters, setFilters] = useState<Record<string, string | undefined>>({
-    nodeType: searchParams.get("nodeType") || undefined,
-    layer: searchParams.get("layer") || undefined,
     status: searchParams.get("status") || undefined,
   });
   const [search, setSearch] = useState("");
@@ -48,6 +63,9 @@ function GraphPageInner() {
   );
   const [visibleRelTypes, setVisibleRelTypes] = useState<Set<string>>(
     () => new Set(ALL_REL_TYPES)
+  );
+  const [visibleNodeTypes, setVisibleNodeTypes] = useState<Set<string>>(
+    () => new Set(ALL_NODE_TYPES)
   );
 
   const handleRelTypeToggle = useCallback((relType: string) => {
@@ -62,20 +80,46 @@ function GraphPageInner() {
     });
   }, []);
 
+  const handleNodeTypeToggle = useCallback((type: string) => {
+    setVisibleNodeTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleLayerToggle = useCallback((_layer: string, types: string[]) => {
+    setVisibleNodeTypes((prev) => {
+      const allChecked = types.every((t) => prev.has(t));
+      const next = new Set(prev);
+      if (allChecked) {
+        types.forEach((t) => next.delete(t));
+      } else {
+        types.forEach((t) => next.add(t));
+      }
+      return next;
+    });
+  }, []);
+
   const queryParams: Record<string, string> = {};
-  if (filters.nodeType) queryParams.nodeType = filters.nodeType;
-  if (filters.layer) queryParams.layer = filters.layer;
   if (filters.status) queryParams.status = filters.status;
   if (search) queryParams.search = search;
 
   const { data, mutate } = useNodes(queryParams);
-  const nodes = (data?.nodes || []).map((n: Record<string, unknown>) => ({
+  const allNodes = (data?.nodes || []).map((n: Record<string, unknown>) => ({
     id: n.id as string,
     name: n.name as string,
     nodeType: n.nodeType as NodeTypeEnum,
     layer: n.layer as string,
     status: n.status as string,
+    subtype: (n.spec_type || n.store_type || n.object_type || n.api_type) as string | undefined,
   }));
+
+  const nodes = allNodes.filter((n) => visibleNodeTypes.has(n.nodeType));
 
   const { data: rels } = useAllRelationships();
   const nodeIds = new Set(nodes.map((n) => n.id));
@@ -120,6 +164,9 @@ function GraphPageInner() {
         onFilterChange={setFilters}
         visibleRelTypes={visibleRelTypes}
         onRelTypeToggle={handleRelTypeToggle}
+        visibleNodeTypes={visibleNodeTypes}
+        onNodeTypeToggle={handleNodeTypeToggle}
+        onLayerToggle={handleLayerToggle}
       />
       <div className="flex-1 flex flex-col">
         <div className="flex items-center gap-2 p-3 border-b">

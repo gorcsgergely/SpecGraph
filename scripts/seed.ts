@@ -57,9 +57,13 @@ async function seed() {
       "BusinessProcess",
       "ProcessStep",
       "DataEntity",
+      "GlossaryTerm",
       "Application",
       "ApplicationComponent",
       "API",
+      "DataStore",
+      "DataObject",
+      "DataField",
       "SpecDocument",
     ];
     for (const label of labels) {
@@ -319,6 +323,300 @@ async function seed() {
       error_codes: "400: Missing required fields, 500: Rules engine error",
       code_hints: "Handler: EligibilityController.check(), calls RulesEngine.evaluate()",
       tags: ["eligibility", "check", "internal"],
+    });
+
+    // ── Physical Data Layer ──
+    console.log("Creating physical data layer...");
+
+    // DataStores
+    const pgDataStore = makeNode("DataStore", "data", {
+      name: "LoanOS PostgreSQL",
+      description: "Primary relational database for the LoanOS loan origination system",
+      store_type: "database",
+      technology: "PostgreSQL 15 on AWS RDS",
+      environment: "production",
+      connection_info: "RDS endpoint, port 5432, SSL required",
+      code_hints: "TypeORM migrations, connection via DATABASE_URL env var",
+      tags: ["postgresql", "rds", "primary"],
+    });
+
+    const redisDataStore = makeNode("DataStore", "data", {
+      name: "LoanOS Redis Cache",
+      description: "In-memory cache for application lookups and eligibility rules config",
+      store_type: "cache",
+      technology: "Redis 7 on ElastiCache",
+      environment: "production",
+      connection_info: "ElastiCache endpoint, port 6379",
+      code_hints: "Cache-aside for app lookups, write-through for rules config. TTL: 30s-5min",
+      tags: ["redis", "cache", "elasticache"],
+    });
+
+    const kafkaDataStore = makeNode("DataStore", "data", {
+      name: "LoanOS Kafka",
+      description: "Event streaming platform for asynchronous service communication",
+      store_type: "message_broker",
+      technology: "Apache Kafka on AWS MSK",
+      environment: "production",
+      connection_info: "MSK broker endpoints, SASL/SSL",
+      code_hints: "Topics partitioned by application_id. DLQ after 3 retries.",
+      tags: ["kafka", "msk", "events"],
+    });
+
+    const s3DataStore = makeNode("DataStore", "data", {
+      name: "LoanOS S3",
+      description: "Object storage for generated documents, credit report raw data, and uploaded files",
+      store_type: "file_store",
+      technology: "AWS S3",
+      environment: "production",
+      connection_info: "S3 bucket: acmebank-loanos-documents",
+      code_hints: "Versioned bucket, lifecycle: 1yr IA, 7yr Glacier",
+      tags: ["s3", "documents", "storage"],
+    });
+
+    // DataObjects (PostgreSQL tables)
+    const loanAppTable = makeNode("DataObject", "data", {
+      name: "loan_applications",
+      description: "PostgreSQL table storing mortgage loan applications with state machine status tracking",
+      object_type: "table",
+      physical_name: "loan_applications",
+      schema_definition: "id UUID PK, borrower_id UUID FK, loan_amount DECIMAL, loan_type VARCHAR, status VARCHAR, dti_ratio DECIMAL, ltv_ratio DECIMAL, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ",
+      format: "sql",
+      code_hints: "Partitioned by created_at (monthly). ORM model: LoanApplication",
+      tags: ["table", "loans", "core"],
+    });
+
+    const borrowersTable = makeNode("DataObject", "data", {
+      name: "borrowers",
+      description: "PostgreSQL table storing borrower personal and financial information with encrypted PII",
+      object_type: "table",
+      physical_name: "borrowers",
+      schema_definition: "id UUID PK, ssn_encrypted BYTEA, ssn_hash VARCHAR(64) UNIQUE, first_name VARCHAR, last_name VARCHAR, email VARCHAR UNIQUE, annual_income DECIMAL, credit_score SMALLINT",
+      format: "sql",
+      code_hints: "SSN encrypted via AES-256, hash for lookups. ORM model: Borrower",
+      tags: ["table", "borrowers", "pii"],
+    });
+
+    const creditReportsTable = makeNode("DataObject", "data", {
+      name: "credit_reports",
+      description: "PostgreSQL table storing credit bureau reports with scores and S3 references to raw data",
+      object_type: "table",
+      physical_name: "credit_reports",
+      schema_definition: "id UUID PK, borrower_id UUID FK, bureau VARCHAR, score SMALLINT, report_date DATE, raw_data_ref VARCHAR (S3 key)",
+      format: "sql",
+      code_hints: "Raw XML stored in S3, only metadata in PG. Partitioned by report_date",
+      tags: ["table", "credit", "reports"],
+    });
+
+    // DataObjects (other types)
+    const loanAppType = makeNode("DataObject", "data", {
+      name: "LoanApplication Type",
+      description: "TypeScript interface representing a loan application in the application service codebase",
+      object_type: "type",
+      physical_name: "LoanApplication",
+      schema_definition: "interface LoanApplication { id: string; borrowerId: string; loanAmount: number; loanType: LoanType; status: ApplicationStatus; dtiRatio?: number; ltvRatio?: number; }",
+      format: "typescript",
+      code_hints: "packages/application-service/src/types/loan-application.ts",
+      tags: ["type", "typescript", "interface"],
+    });
+
+    const kafkaTopic = makeNode("DataObject", "data", {
+      name: "loan.application.created",
+      description: "Kafka topic for application created events, consumed by Eligibility, Notification, and Fraud services",
+      object_type: "topic",
+      physical_name: "loan.application.created",
+      schema_definition: "key: applicationId (UUID), value: { applicationId, borrowerId, loanAmount, loanType, timestamp }",
+      format: "json",
+      code_hints: "Partition key: applicationId. Retention: 7 days. Consumers: eligibility-cg, notification-cg, fraud-cg",
+      tags: ["topic", "kafka", "event"],
+    });
+
+    const createAppPayload = makeNode("DataObject", "data", {
+      name: "CreateApplicationRequest",
+      description: "API request payload schema for creating a new mortgage application",
+      object_type: "payload",
+      physical_name: "CreateApplicationRequest",
+      schema_definition: "{ borrower: { ssn, firstName, lastName, dob, email, phone?, employer?, annualIncome }, property: { address, city, state, zip, estimatedValue, propertyType }, loanAmount, loanType }",
+      format: "json_schema",
+      code_hints: "Validated via Zod in ApplicationController.create(). See openapi spec for full schema.",
+      tags: ["payload", "api", "request"],
+    });
+
+    // DataFields (sample for loan_applications table)
+    const fieldId = makeNode("DataField", "data", {
+      name: "id",
+      description: "Primary key for loan applications",
+      field_type: "UUID",
+      physical_name: "id",
+      nullable: false,
+      default_value: "gen_random_uuid()",
+      constraints: "PRIMARY KEY",
+      pii: false,
+      sensitivity: "",
+      code_hints: "",
+      tags: ["pk", "uuid"],
+    });
+
+    const fieldBorrowerId = makeNode("DataField", "data", {
+      name: "borrower_id",
+      description: "Foreign key to borrowers table",
+      field_type: "UUID",
+      physical_name: "borrower_id",
+      nullable: false,
+      default_value: "",
+      constraints: "FOREIGN KEY → borrowers.id, ON DELETE RESTRICT",
+      pii: false,
+      sensitivity: "",
+      code_hints: "",
+      tags: ["fk", "borrower"],
+    });
+
+    const fieldLoanAmount = makeNode("DataField", "data", {
+      name: "loan_amount",
+      description: "Requested mortgage loan amount in USD",
+      field_type: "DECIMAL(12,2)",
+      physical_name: "loan_amount",
+      nullable: false,
+      default_value: "",
+      constraints: "CHECK (loan_amount > 0)",
+      pii: false,
+      sensitivity: "",
+      code_hints: "",
+      tags: ["amount", "financial"],
+    });
+
+    const fieldLoanType = makeNode("DataField", "data", {
+      name: "loan_type",
+      description: "Mortgage loan program type",
+      field_type: "VARCHAR(20)",
+      physical_name: "loan_type",
+      nullable: false,
+      default_value: "",
+      constraints: "CHECK (loan_type IN ('conventional','fha','va','usda'))",
+      pii: false,
+      sensitivity: "",
+      code_hints: "",
+      tags: ["enum", "loan-type"],
+    });
+
+    const fieldStatus = makeNode("DataField", "data", {
+      name: "status",
+      description: "Current application state machine status",
+      field_type: "VARCHAR(30)",
+      physical_name: "status",
+      nullable: false,
+      default_value: "'received'",
+      constraints: "CHECK (status IN ('received','in_review','approved','denied','withdrawn','funded'))",
+      pii: false,
+      sensitivity: "",
+      code_hints: "",
+      tags: ["status", "state-machine"],
+    });
+
+    const fieldDtiRatio = makeNode("DataField", "data", {
+      name: "dti_ratio",
+      description: "Calculated debt-to-income ratio as percentage",
+      field_type: "DECIMAL(5,2)",
+      physical_name: "dti_ratio",
+      nullable: true,
+      default_value: "",
+      constraints: "CHECK (dti_ratio >= 0 AND dti_ratio <= 100)",
+      pii: false,
+      sensitivity: "",
+      code_hints: "",
+      tags: ["ratio", "calculated"],
+    });
+
+    const fieldLtvRatio = makeNode("DataField", "data", {
+      name: "ltv_ratio",
+      description: "Calculated loan-to-value ratio as percentage",
+      field_type: "DECIMAL(5,2)",
+      physical_name: "ltv_ratio",
+      nullable: true,
+      default_value: "",
+      constraints: "CHECK (ltv_ratio >= 0 AND ltv_ratio <= 200)",
+      pii: false,
+      sensitivity: "",
+      code_hints: "",
+      tags: ["ratio", "calculated"],
+    });
+
+    // ── Glossary Terms ──
+    console.log("Creating glossary terms...");
+
+    const dtiRatio = makeNode("GlossaryTerm", "business", {
+      name: "Debt-to-Income Ratio",
+      description: "The percentage of a borrower's gross monthly income that goes toward paying monthly debt obligations",
+      canonical_name: "dtiRatio",
+      domain: "Consumer Banking",
+      owner: "Chief Credit Officer",
+      steward: "Risk Analytics Team",
+      synonyms: ["DTI", "debt income ratio", "debt_to_income"],
+      definition: "DTI = (total monthly debt payments + proposed monthly housing payment) / gross monthly income × 100. Used as primary affordability metric in mortgage underwriting.",
+      data_type: "decimal(5,2)",
+      allowed_values: "0.00 - 100.00 (percentage)",
+      gdpr_category: "none",
+      privacy_class: "internal",
+      dq_rules: "Must be recalculated when income or debt changes; must use verified income for final decision",
+      regulatory_refs: ["QM Rule (43% max)", "Fannie Mae (50% max with compensating factors)", "TILA"],
+      code_hints: "Variable: dtiRatio, type: number, compute in eligibility-service. Formula: (totalMonthlyDebt + proposedPayment) / grossMonthlyIncome * 100",
+      tags: ["ratio", "underwriting", "affordability"],
+    });
+
+    const ltvRatio = makeNode("GlossaryTerm", "business", {
+      name: "Loan-to-Value Ratio",
+      description: "The ratio of a mortgage loan amount to the appraised value of the property",
+      canonical_name: "ltvRatio",
+      domain: "Consumer Banking",
+      owner: "Chief Credit Officer",
+      steward: "Risk Analytics Team",
+      synonyms: ["LTV", "loan_to_value", "loan value ratio"],
+      definition: "LTV = loan amount / min(appraised value, purchase price) × 100. Determines PMI requirement and loan program eligibility.",
+      data_type: "decimal(5,2)",
+      allowed_values: "0.00 - 200.00 (percentage, can exceed 100 for underwater loans)",
+      gdpr_category: "none",
+      privacy_class: "internal",
+      dq_rules: "Must use lower of appraised value or purchase price for purchases; appraised value only for refinances",
+      regulatory_refs: ["Conventional max 97%", "FHA max 96.5%", "VA max 100%"],
+      code_hints: "Variable: ltvRatio, type: number, compute in eligibility-service. Formula: loanAmount / Math.min(appraisedValue, purchasePrice) * 100",
+      tags: ["ratio", "underwriting", "collateral"],
+    });
+
+    const ssn = makeNode("GlossaryTerm", "business", {
+      name: "Social Security Number",
+      description: "Nine-digit unique identifier issued by the Social Security Administration to U.S. citizens and eligible residents",
+      canonical_name: "ssn",
+      domain: "Consumer Banking",
+      owner: "Chief Privacy Officer",
+      steward: "Data Governance Team",
+      synonyms: ["SSN", "social security", "social_security_number", "tax ID"],
+      definition: "A 9-digit number in format XXX-XX-XXXX used to identify individuals for credit reporting, tax purposes, and identity verification in financial services.",
+      data_type: "string(11)",
+      allowed_values: "Format: XXX-XX-XXXX where X is digit. Area number 001-899 (excl 666), group 01-99, serial 0001-9999",
+      gdpr_category: "sensitive",
+      privacy_class: "restricted",
+      dq_rules: "Must pass Luhn-like checksum; must be unique per borrower; must be stored encrypted (AES-256); must be masked in logs as XXX-XX-####",
+      regulatory_refs: ["GLBA", "FCRA", "ECOA", "IRS regulations"],
+      code_hints: "Variable: ssn, type: string. ALWAYS encrypt at rest (ssn_encrypted BYTEA), store hash for lookups (ssn_hash VARCHAR(64)). Mask in all log output. Never include in API responses.",
+      tags: ["pii", "identifier", "restricted"],
+    });
+
+    const loanType = makeNode("GlossaryTerm", "business", {
+      name: "Loan Type",
+      description: "The classification of a mortgage loan based on its backing agency or program",
+      canonical_name: "loanType",
+      domain: "Consumer Banking",
+      owner: "VP Lending",
+      steward: "Product Team",
+      synonyms: ["loan program", "mortgage type", "loan_program_type"],
+      definition: "Categorizes mortgage loans by their guarantor/insurer: Conventional (no government backing), FHA (Federal Housing Administration), VA (Veterans Affairs), USDA (US Department of Agriculture). Each type has different eligibility criteria, down payment requirements, and insurance rules.",
+      data_type: "enum",
+      allowed_values: "conventional, fha, va, usda",
+      gdpr_category: "none",
+      privacy_class: "internal",
+      dq_rules: "Must be one of the allowed enum values; determines which eligibility rule set to apply",
+      regulatory_refs: ["National Housing Act (FHA)", "Servicemen's Readjustment Act (VA)", "Housing Act of 1949 (USDA)"],
+      code_hints: "Variable: loanType, type: 'conventional' | 'fha' | 'va' | 'usda'. Use as discriminator for eligibility rule lookup table.",
+      tags: ["enum", "classification", "product"],
     });
 
     // ── Spec Layer ──
@@ -1635,9 +1933,17 @@ monthly_pmi = (loan_amount × annual_pmi_rate) / 12
       retailLending, mortgageOrigination, mortgageService,
       applicationProcess, step1, step2, step3, step4,
       loanApplication, borrowerProfile, creditReport,
+      // Glossary terms
+      dtiRatio, ltvRatio, ssn, loanType,
       // Application layer
       loanOS, appService, eligibilityService, creditAdapter,
       createAppAPI, getAppAPI, eligibilityAPI,
+      // Physical data layer
+      pgDataStore, redisDataStore, kafkaDataStore, s3DataStore,
+      loanAppTable, borrowersTable, creditReportsTable,
+      loanAppType, kafkaTopic, createAppPayload,
+      fieldId, fieldBorrowerId, fieldLoanAmount, fieldLoanType,
+      fieldStatus, fieldDtiRatio, fieldLtvRatio,
       // Spec layer — original
       openAPISpec, erdSpec, testSpec,
       // Spec layer — new templates
@@ -1745,6 +2051,82 @@ monthly_pmi = (loan_amount × annual_pmi_rate) / 12
 
       // Deployment → LoanOS application
       { type: "SPECIFIED_BY", from: loanOS.id, to: deploymentSpec.id },
+
+      // ── Glossary ASSOCIATED_WITH relationships ──
+
+      // DTI Ratio → data entities, processes, APIs, services
+      { type: "ASSOCIATED_WITH", from: dtiRatio.id, to: loanApplication.id },
+      { type: "ASSOCIATED_WITH", from: dtiRatio.id, to: borrowerProfile.id },
+      { type: "ASSOCIATED_WITH", from: dtiRatio.id, to: step3.id },
+      { type: "ASSOCIATED_WITH", from: dtiRatio.id, to: eligibilityAPI.id },
+      { type: "ASSOCIATED_WITH", from: dtiRatio.id, to: eligibilityService.id },
+      { type: "ASSOCIATED_WITH", from: dtiRatio.id, to: mortgageOrigination.id },
+
+      // LTV Ratio → data entities, processes, APIs
+      { type: "ASSOCIATED_WITH", from: ltvRatio.id, to: loanApplication.id },
+      { type: "ASSOCIATED_WITH", from: ltvRatio.id, to: step3.id },
+      { type: "ASSOCIATED_WITH", from: ltvRatio.id, to: eligibilityAPI.id },
+      { type: "ASSOCIATED_WITH", from: ltvRatio.id, to: eligibilityService.id },
+      { type: "ASSOCIATED_WITH", from: ltvRatio.id, to: mortgageOrigination.id },
+
+      // SSN → data entities, process steps, APIs
+      { type: "ASSOCIATED_WITH", from: ssn.id, to: borrowerProfile.id },
+      { type: "ASSOCIATED_WITH", from: ssn.id, to: step1.id },
+      { type: "ASSOCIATED_WITH", from: ssn.id, to: step2.id },
+      { type: "ASSOCIATED_WITH", from: ssn.id, to: createAppAPI.id },
+      { type: "ASSOCIATED_WITH", from: ssn.id, to: creditAdapter.id },
+
+      // Loan Type → data entities, services, capabilities
+      { type: "ASSOCIATED_WITH", from: loanType.id, to: loanApplication.id },
+      { type: "ASSOCIATED_WITH", from: loanType.id, to: mortgageService.id },
+      { type: "ASSOCIATED_WITH", from: loanType.id, to: mortgageOrigination.id },
+      { type: "ASSOCIATED_WITH", from: loanType.id, to: createAppAPI.id },
+
+      // ── Physical Data Layer relationships ──
+
+      // Application COMPOSES DataStores
+      { type: "COMPOSES", from: loanOS.id, to: pgDataStore.id },
+      { type: "COMPOSES", from: loanOS.id, to: redisDataStore.id },
+      { type: "COMPOSES", from: loanOS.id, to: kafkaDataStore.id },
+      { type: "COMPOSES", from: loanOS.id, to: s3DataStore.id },
+
+      // DataStore COMPOSES DataObjects
+      { type: "COMPOSES", from: pgDataStore.id, to: loanAppTable.id },
+      { type: "COMPOSES", from: pgDataStore.id, to: borrowersTable.id },
+      { type: "COMPOSES", from: pgDataStore.id, to: creditReportsTable.id },
+      { type: "COMPOSES", from: kafkaDataStore.id, to: kafkaTopic.id },
+
+      // DataObject COMPOSES DataFields (loan_applications fields)
+      { type: "COMPOSES", from: loanAppTable.id, to: fieldId.id },
+      { type: "COMPOSES", from: loanAppTable.id, to: fieldBorrowerId.id },
+      { type: "COMPOSES", from: loanAppTable.id, to: fieldLoanAmount.id },
+      { type: "COMPOSES", from: loanAppTable.id, to: fieldLoanType.id },
+      { type: "COMPOSES", from: loanAppTable.id, to: fieldStatus.id },
+      { type: "COMPOSES", from: loanAppTable.id, to: fieldDtiRatio.id },
+      { type: "COMPOSES", from: loanAppTable.id, to: fieldLtvRatio.id },
+
+      // DataObject REALIZES DataEntity (physical → logical)
+      { type: "REALIZES", from: loanAppTable.id, to: loanApplication.id },
+      { type: "REALIZES", from: borrowersTable.id, to: borrowerProfile.id },
+      { type: "REALIZES", from: creditReportsTable.id, to: creditReport.id },
+
+      // ApplicationComponent ACCESSES DataObject
+      { type: "ACCESSES", from: appService.id, to: loanAppTable.id, props: { access_type: "read_write" } },
+      { type: "ACCESSES", from: appService.id, to: borrowersTable.id, props: { access_type: "read_write" } },
+      { type: "ACCESSES", from: creditAdapter.id, to: creditReportsTable.id, props: { access_type: "write" } },
+
+      // API ACCESSES DataObject
+      { type: "ACCESSES", from: createAppAPI.id, to: createAppPayload.id, props: { access_type: "read" } },
+
+      // ApplicationComponent DEPENDS_ON DataStore
+      { type: "DEPENDS_ON", from: appService.id, to: pgDataStore.id },
+      { type: "DEPENDS_ON", from: appService.id, to: redisDataStore.id },
+      { type: "DEPENDS_ON", from: appService.id, to: kafkaDataStore.id },
+
+      // Data lineage: FLOWS_TO between DataObjects
+      { type: "FLOWS_TO", from: createAppPayload.id, to: loanAppType.id },
+      { type: "FLOWS_TO", from: loanAppType.id, to: loanAppTable.id },
+      { type: "FLOWS_TO", from: loanAppTable.id, to: kafkaTopic.id },
     ];
 
     for (const rel of rels) {

@@ -9,6 +9,7 @@ interface TooltipData {
   nodeType: NodeType;
   status: string;
   degree: number;
+  subtype?: string;
 }
 
 interface GraphTooltipProps {
@@ -31,7 +32,11 @@ export function GraphTooltip({ data, x, y }: GraphTooltipProps) {
           className="w-2 h-2 rounded-full"
           style={{ backgroundColor: NODE_TYPE_COLORS[data.nodeType] }}
         />
-        <span className="text-xs text-muted-foreground">{data.nodeType}</span>
+        <span className="text-xs text-muted-foreground">
+          {data.subtype
+            ? `${data.nodeType === "SpecDocument" ? "Spec" : data.nodeType} – ${data.subtype.replace(/_/g, " ")}`
+            : data.nodeType}
+        </span>
       </div>
       <div className="flex items-center justify-between mt-1">
         <div className="flex items-center gap-1.5">

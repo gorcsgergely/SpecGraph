@@ -60,6 +60,10 @@ const TEMPLATE_SUGGESTIONS: Partial<Record<NodeType, string[]>> = {
   Application: ["architecture", "deployment", "compliance_security", "test_spec"],
   ApplicationComponent: ["architecture", "api_internal", "implementation_spec", "test_spec"],
   API: ["api_internal", "api_external", "openapi", "test_spec"],
+  GlossaryTerm: ["data_model", "business_rules", "compliance_security"],
+  DataStore: ["architecture", "deployment", "compliance_security"],
+  DataObject: ["data_model", "implementation_spec", "test_spec"],
+  DataField: ["data_model", "compliance_security"],
 };
 
 export function getSuggestedTemplates(nodeType: NodeType): TemplateSuggestion[] {

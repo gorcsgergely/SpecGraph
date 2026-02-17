@@ -98,7 +98,7 @@ export const VALIDATION_RULES: ValidationRule[] = [
       MATCH (n) WHERE n.valid_to IS NULL
       AND n.acceptance_criteria IS NOT NULL
       AND n.acceptance_criteria = ''
-      AND NOT labels(n)[0] IN ['SpecDocument', 'DataEntity']
+      AND NOT labels(n)[0] IN ['SpecDocument', 'DataEntity', 'GlossaryTerm', 'DataStore', 'DataObject', 'DataField']
       RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
   {
@@ -148,5 +148,79 @@ export const VALIDATION_RULES: ValidationRule[] = [
         WHERE r.valid_to IS NULL
       }
       RETURN s.id as nodeId, s.name as nodeName, labels(s)[0] as nodeType`,
+  },
+  {
+    id: "glossary_no_association",
+    severity: "warning",
+    description: "GlossaryTerm has no ASSOCIATED_WITH relationships",
+    cypher: `
+      MATCH (n:GlossaryTerm) WHERE n.valid_to IS NULL
+      AND NOT EXISTS {
+        MATCH (n)-[:ASSOCIATED_WITH]-()
+        WHERE true
+      }
+      RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "glossary_missing_definition",
+    severity: "warning",
+    description: "GlossaryTerm missing definition",
+    cypher: `
+      MATCH (n:GlossaryTerm) WHERE n.valid_to IS NULL
+      AND (n.definition IS NULL OR n.definition = '')
+      RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "glossary_missing_canonical_name",
+    severity: "error",
+    description: "GlossaryTerm missing canonical name",
+    cypher: `
+      MATCH (n:GlossaryTerm) WHERE n.valid_to IS NULL
+      AND (n.canonical_name IS NULL OR n.canonical_name = '')
+      RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "data_entity_no_glossary",
+    severity: "info",
+    description: "DataEntity has no associated GlossaryTerm",
+    cypher: `
+      MATCH (n:DataEntity) WHERE n.valid_to IS NULL
+      AND NOT EXISTS {
+        MATCH (:GlossaryTerm)-[:ASSOCIATED_WITH]->(n)
+      }
+      RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "datastore_no_objects",
+    severity: "warning",
+    description: "DataStore has no DataObjects",
+    cypher: `
+      MATCH (n:DataStore) WHERE n.valid_to IS NULL
+      AND NOT EXISTS {
+        MATCH (n)-[:COMPOSES]->(:DataObject)
+      }
+      RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "dataobject_no_fields",
+    severity: "info",
+    description: "DataObject has no DataFields",
+    cypher: `
+      MATCH (n:DataObject) WHERE n.valid_to IS NULL
+      AND NOT EXISTS {
+        MATCH (n)-[:COMPOSES]->(:DataField)
+      }
+      RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
+  },
+  {
+    id: "dataobject_no_realizes",
+    severity: "warning",
+    description: "DataObject does not realize any DataEntity",
+    cypher: `
+      MATCH (n:DataObject) WHERE n.valid_to IS NULL
+      AND NOT EXISTS {
+        MATCH (n)-[:REALIZES]->(:DataEntity)
+      }
+      RETURN n.id as nodeId, n.name as nodeName, labels(n)[0] as nodeType`,
   },
 ];

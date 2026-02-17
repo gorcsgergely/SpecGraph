@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 export const NodeStatus = z.enum(["draft", "active", "deprecated", "archived"]);
 export type NodeStatus = z.infer<typeof NodeStatus>;
 
-export const NodeLayer = z.enum(["business", "application", "spec"]);
+export const NodeLayer = z.enum(["business", "application", "data", "spec"]);
 export type NodeLayer = z.infer<typeof NodeLayer>;
 
 export const BaseNodeSchema = z.object({
@@ -32,9 +32,13 @@ export const NodeType = z.enum([
   "BusinessProcess",
   "ProcessStep",
   "DataEntity",
+  "GlossaryTerm",
   "Application",
   "ApplicationComponent",
   "API",
+  "DataStore",
+  "DataObject",
+  "DataField",
   "SpecDocument",
 ]);
 export type NodeType = z.infer<typeof NodeType>;
@@ -105,6 +109,31 @@ export const DataEntitySchema = BaseNodeSchema.extend({
 });
 export type DataEntity = z.infer<typeof DataEntitySchema>;
 
+export const GdprCategory = z.enum(["none", "personal", "sensitive", "special_category"]);
+export type GdprCategory = z.infer<typeof GdprCategory>;
+
+export const PrivacyClass = z.enum(["public", "internal", "confidential", "restricted"]);
+export type PrivacyClass = z.infer<typeof PrivacyClass>;
+
+export const GlossaryTermSchema = BaseNodeSchema.extend({
+  nodeType: z.literal("GlossaryTerm"),
+  layer: z.literal("business"),
+  canonical_name: z.string().min(1),
+  domain: z.string().default(""),
+  owner: z.string().default(""),
+  steward: z.string().default(""),
+  synonyms: z.array(z.string()).default([]),
+  definition: z.string().default(""),
+  data_type: z.string().default(""),
+  allowed_values: z.string().default(""),
+  gdpr_category: GdprCategory.default("none"),
+  privacy_class: PrivacyClass.default("internal"),
+  dq_rules: z.string().default(""),
+  regulatory_refs: z.array(z.string()).default([]),
+  code_hints: z.string().default(""),
+});
+export type GlossaryTerm = z.infer<typeof GlossaryTermSchema>;
+
 // Application Layer
 
 export const ApplicationSchema = BaseNodeSchema.extend({
@@ -149,6 +178,44 @@ export const APISchema = BaseNodeSchema.extend({
 });
 export type APINode = z.infer<typeof APISchema>;
 
+// Data Layer (physical data)
+
+export const DataStoreSchema = BaseNodeSchema.extend({
+  nodeType: z.literal("DataStore"),
+  layer: z.literal("data"),
+  store_type: z.enum(["database", "cache", "message_broker", "file_store", "data_lake"]),
+  technology: z.string().default(""),
+  environment: z.string().default(""),
+  connection_info: z.string().default(""),
+  code_hints: z.string().default(""),
+});
+export type DataStore = z.infer<typeof DataStoreSchema>;
+
+export const DataObjectSchema = BaseNodeSchema.extend({
+  nodeType: z.literal("DataObject"),
+  layer: z.literal("data"),
+  object_type: z.enum(["table", "view", "collection", "topic", "type", "class", "schema", "payload"]),
+  physical_name: z.string().min(1),
+  schema_definition: z.string().default(""),
+  format: z.string().default(""),
+  code_hints: z.string().default(""),
+});
+export type DataObject = z.infer<typeof DataObjectSchema>;
+
+export const DataFieldSchema = BaseNodeSchema.extend({
+  nodeType: z.literal("DataField"),
+  layer: z.literal("data"),
+  field_type: z.string().min(1),
+  physical_name: z.string().min(1),
+  nullable: z.boolean().default(false),
+  default_value: z.string().default(""),
+  constraints: z.string().default(""),
+  pii: z.boolean().default(false),
+  sensitivity: z.string().default(""),
+  code_hints: z.string().default(""),
+});
+export type DataField = z.infer<typeof DataFieldSchema>;
+
 // Spec Layer
 
 export const SpecTypeEnum = z.enum([
@@ -189,9 +256,13 @@ export type GraphNode =
   | BusinessProcess
   | ProcessStep
   | DataEntity
+  | GlossaryTerm
   | Application
   | ApplicationComponent
   | APINode
+  | DataStore
+  | DataObject
+  | DataField
   | SpecDocument;
 
 export const NodeSchemaMap: Record<NodeType, z.ZodType> = {
@@ -200,9 +271,13 @@ export const NodeSchemaMap: Record<NodeType, z.ZodType> = {
   BusinessProcess: BusinessProcessSchema,
   ProcessStep: ProcessStepSchema,
   DataEntity: DataEntitySchema,
+  GlossaryTerm: GlossaryTermSchema,
   Application: ApplicationSchema,
   ApplicationComponent: ApplicationComponentSchema,
   API: APISchema,
+  DataStore: DataStoreSchema,
+  DataObject: DataObjectSchema,
+  DataField: DataFieldSchema,
   SpecDocument: SpecDocumentSchema,
 };
 
@@ -216,6 +291,7 @@ export const RelationshipType = z.enum([
   "FLOWS_TO",
   "TRIGGERS",
   "DEPENDS_ON",
+  "ASSOCIATED_WITH",
   "SPECIFIED_BY",
   "TESTED_BY",
   "IMPLEMENTED_BY",
@@ -242,12 +318,16 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
     ["BusinessCapability", "BusinessCapability"],
     ["BusinessProcess", "ProcessStep"],
     ["Application", "ApplicationComponent"],
+    ["DataStore", "DataObject"],
+    ["DataObject", "DataField"],
+    ["Application", "DataStore"],
   ],
   REALIZES: [
     ["BusinessService", "BusinessCapability"],
     ["Application", "BusinessService"],
     ["ApplicationComponent", "BusinessProcess"],
     ["API", "ApplicationComponent"],
+    ["DataObject", "DataEntity"],
   ],
   SERVES: [
     ["BusinessService", "BusinessCapability"],
@@ -257,11 +337,14 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
     ["BusinessProcess", "DataEntity"],
     ["ProcessStep", "DataEntity"],
     ["API", "DataEntity"],
+    ["ApplicationComponent", "DataObject"],
+    ["API", "DataObject"],
   ],
   FLOWS_TO: [
     ["ProcessStep", "ProcessStep"],
     ["Application", "Application"],
     ["ApplicationComponent", "ApplicationComponent"],
+    ["DataObject", "DataObject"],
   ],
   TRIGGERS: [
     ["ProcessStep", "BusinessProcess"],
@@ -271,6 +354,21 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
     ["Application", "Application"],
     ["ApplicationComponent", "ApplicationComponent"],
     ["API", "API"],
+    ["ApplicationComponent", "DataStore"],
+  ],
+  ASSOCIATED_WITH: [
+    ["GlossaryTerm", "DataEntity"],
+    ["GlossaryTerm", "BusinessProcess"],
+    ["GlossaryTerm", "BusinessService"],
+    ["GlossaryTerm", "BusinessCapability"],
+    ["GlossaryTerm", "ProcessStep"],
+    ["GlossaryTerm", "API"],
+    ["GlossaryTerm", "ApplicationComponent"],
+    ["GlossaryTerm", "Application"],
+    ["GlossaryTerm", "GlossaryTerm"],
+    ["GlossaryTerm", "DataStore"],
+    ["GlossaryTerm", "DataObject"],
+    ["GlossaryTerm", "DataField"],
   ],
   SPECIFIED_BY: [
     ["BusinessCapability", "SpecDocument"],
@@ -278,9 +376,13 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
     ["BusinessProcess", "SpecDocument"],
     ["ProcessStep", "SpecDocument"],
     ["DataEntity", "SpecDocument"],
+    ["GlossaryTerm", "SpecDocument"],
     ["Application", "SpecDocument"],
     ["ApplicationComponent", "SpecDocument"],
     ["API", "SpecDocument"],
+    ["DataStore", "SpecDocument"],
+    ["DataObject", "SpecDocument"],
+    ["DataField", "SpecDocument"],
     ["SpecDocument", "SpecDocument"],
   ],
   TESTED_BY: [
@@ -289,9 +391,13 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
     ["BusinessProcess", "SpecDocument"],
     ["ProcessStep", "SpecDocument"],
     ["DataEntity", "SpecDocument"],
+    ["GlossaryTerm", "SpecDocument"],
     ["Application", "SpecDocument"],
     ["ApplicationComponent", "SpecDocument"],
     ["API", "SpecDocument"],
+    ["DataStore", "SpecDocument"],
+    ["DataObject", "SpecDocument"],
+    ["DataField", "SpecDocument"],
   ],
   IMPLEMENTED_BY: [
     ["BusinessCapability", "SpecDocument"],
@@ -299,9 +405,13 @@ export const ALLOWED_RELATIONSHIPS: Record<RelationshipType, Array<[NodeType, No
     ["BusinessProcess", "SpecDocument"],
     ["ProcessStep", "SpecDocument"],
     ["DataEntity", "SpecDocument"],
+    ["GlossaryTerm", "SpecDocument"],
     ["Application", "SpecDocument"],
     ["ApplicationComponent", "SpecDocument"],
     ["API", "SpecDocument"],
+    ["DataStore", "SpecDocument"],
+    ["DataObject", "SpecDocument"],
+    ["DataField", "SpecDocument"],
   ],
 };
 
@@ -317,19 +427,29 @@ export function isRelationshipAllowed(
 // ── Layer Color Map ──────────────────────────────────────────────────────────
 
 export const LAYER_COLORS: Record<NodeLayer, string> = {
-  business: "#3b82f6",    // blue
-  application: "#10b981", // emerald
-  spec: "#f59e0b",        // amber
+  business: "#f9db25",    // ArchiMate business yellow
+  application: "#8fbce6", // ArchiMate application blue
+  data: "#a3be30",        // ArchiMate technology green
+  spec: "#6366f1",        // indigo (documentation)
 };
 
 export const NODE_TYPE_COLORS: Record<NodeType, string> = {
-  BusinessCapability: "#2563eb",
-  BusinessService: "#3b82f6",
-  BusinessProcess: "#60a5fa",
-  ProcessStep: "#93c5fd",
-  DataEntity: "#a855f7",
-  Application: "#059669",
-  ApplicationComponent: "#10b981",
-  API: "#34d399",
-  SpecDocument: "#f59e0b",
+  // Business layer — ArchiMate yellow (#f9db25)
+  BusinessCapability: "#f5aa27",  // ArchiMate Capability (strategy orange)
+  BusinessService: "#f9db25",     // ArchiMate BusinessService
+  BusinessProcess: "#f7d024",     // ArchiMate BusinessProcess (darker variant)
+  ProcessStep: "#fbe54a",         // lighter yellow variant
+  DataEntity: "#f9db25",          // ArchiMate BusinessObject (business passive)
+  // Motivation — ArchiMate purple (#c898fc)
+  GlossaryTerm: "#c898fc",        // ArchiMate Meaning/Motivation
+  // Application layer — ArchiMate blue (#8fbce6)
+  Application: "#7aade0",         // darker blue variant
+  ApplicationComponent: "#8fbce6", // ArchiMate ApplicationComponent
+  API: "#a4cdef",                 // lighter blue variant
+  // Technology / physical data — ArchiMate green (#b9cf3b)
+  DataStore: "#a3be30",           // darker green variant
+  DataObject: "#b9cf3b",          // ArchiMate technology green
+  DataField: "#c8da5e",           // lighter green variant
+  // Spec layer — indigo (documentation, rendered as outline)
+  SpecDocument: "#6366f1",        // indigo-500
 };

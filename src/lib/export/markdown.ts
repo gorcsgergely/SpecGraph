@@ -118,6 +118,7 @@ function groupNodesByLayer(nodes: GraphNode[]): Record<string, GraphNode[]> {
   const groups: Record<string, GraphNode[]> = {
     business: [],
     application: [],
+    data: [],
     spec: [],
   };
   for (const node of nodes) {
