@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 export const NodeStatus = z.enum(["draft", "active", "deprecated", "archived"]);
 export type NodeStatus = z.infer<typeof NodeStatus>;
 
-export const NodeLayer = z.enum(["business", "application", "data", "spec"]);
+export const NodeLayer = z.enum(["business", "application", "technology", "spec"]);
 export type NodeLayer = z.infer<typeof NodeLayer>;
 
 export const BaseNodeSchema = z.object({
@@ -178,11 +178,11 @@ export const APISchema = BaseNodeSchema.extend({
 });
 export type APINode = z.infer<typeof APISchema>;
 
-// Data Layer (physical data)
+// Technology Layer (physical infrastructure)
 
 export const DataStoreSchema = BaseNodeSchema.extend({
   nodeType: z.literal("DataStore"),
-  layer: z.literal("data"),
+  layer: z.literal("technology"),
   store_type: z.enum(["database", "cache", "message_broker", "file_store", "data_lake"]),
   technology: z.string().default(""),
   environment: z.string().default(""),
@@ -191,9 +191,11 @@ export const DataStoreSchema = BaseNodeSchema.extend({
 });
 export type DataStore = z.infer<typeof DataStoreSchema>;
 
+// Application Layer (data structures)
+
 export const DataObjectSchema = BaseNodeSchema.extend({
   nodeType: z.literal("DataObject"),
-  layer: z.literal("data"),
+  layer: z.literal("application"),
   object_type: z.enum(["table", "view", "collection", "topic", "type", "class", "schema", "payload"]),
   physical_name: z.string().min(1),
   schema_definition: z.string().default(""),
@@ -204,7 +206,7 @@ export type DataObject = z.infer<typeof DataObjectSchema>;
 
 export const DataFieldSchema = BaseNodeSchema.extend({
   nodeType: z.literal("DataField"),
-  layer: z.literal("data"),
+  layer: z.literal("application"),
   field_type: z.string().min(1),
   physical_name: z.string().min(1),
   nullable: z.boolean().default(false),
@@ -429,7 +431,7 @@ export function isRelationshipAllowed(
 export const LAYER_COLORS: Record<NodeLayer, string> = {
   business: "#f9db25",    // ArchiMate business yellow
   application: "#8fbce6", // ArchiMate application blue
-  data: "#a3be30",        // ArchiMate technology green
+  technology: "#a3be30",  // ArchiMate technology green
   spec: "#6366f1",        // indigo (documentation)
 };
 
@@ -446,10 +448,11 @@ export const NODE_TYPE_COLORS: Record<NodeType, string> = {
   Application: "#7aade0",         // darker blue variant
   ApplicationComponent: "#8fbce6", // ArchiMate ApplicationComponent
   API: "#a4cdef",                 // lighter blue variant
-  // Technology / physical data — ArchiMate green (#b9cf3b)
-  DataStore: "#a3be30",           // darker green variant
-  DataObject: "#b9cf3b",          // ArchiMate technology green
-  DataField: "#c8da5e",           // lighter green variant
+  // Application layer — data structures (cyan-tinted blue)
+  DataObject: "#7ec8e3",          // teal-blue variant
+  DataField: "#a8daf0",           // light teal-blue variant
+  // Technology layer — ArchiMate green (#b9cf3b)
+  DataStore: "#a3be30",           // ArchiMate technology green
   // Spec layer — indigo (documentation, rendered as outline)
   SpecDocument: "#6366f1",        // indigo-500
 };

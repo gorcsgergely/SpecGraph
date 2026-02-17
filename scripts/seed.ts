@@ -325,11 +325,11 @@ async function seed() {
       tags: ["eligibility", "check", "internal"],
     });
 
-    // ── Physical Data Layer ──
-    console.log("Creating physical data layer...");
+    // ── Technology Layer ──
+    console.log("Creating technology layer...");
 
     // DataStores
-    const pgDataStore = makeNode("DataStore", "data", {
+    const pgDataStore = makeNode("DataStore", "technology", {
       name: "LoanOS PostgreSQL",
       description: "Primary relational database for the LoanOS loan origination system",
       store_type: "database",
@@ -340,7 +340,7 @@ async function seed() {
       tags: ["postgresql", "rds", "primary"],
     });
 
-    const redisDataStore = makeNode("DataStore", "data", {
+    const redisDataStore = makeNode("DataStore", "technology", {
       name: "LoanOS Redis Cache",
       description: "In-memory cache for application lookups and eligibility rules config",
       store_type: "cache",
@@ -351,7 +351,7 @@ async function seed() {
       tags: ["redis", "cache", "elasticache"],
     });
 
-    const kafkaDataStore = makeNode("DataStore", "data", {
+    const kafkaDataStore = makeNode("DataStore", "technology", {
       name: "LoanOS Kafka",
       description: "Event streaming platform for asynchronous service communication",
       store_type: "message_broker",
@@ -362,7 +362,7 @@ async function seed() {
       tags: ["kafka", "msk", "events"],
     });
 
-    const s3DataStore = makeNode("DataStore", "data", {
+    const s3DataStore = makeNode("DataStore", "technology", {
       name: "LoanOS S3",
       description: "Object storage for generated documents, credit report raw data, and uploaded files",
       store_type: "file_store",
@@ -374,7 +374,7 @@ async function seed() {
     });
 
     // DataObjects (PostgreSQL tables)
-    const loanAppTable = makeNode("DataObject", "data", {
+    const loanAppTable = makeNode("DataObject", "application", {
       name: "loan_applications",
       description: "PostgreSQL table storing mortgage loan applications with state machine status tracking",
       object_type: "table",
@@ -385,7 +385,7 @@ async function seed() {
       tags: ["table", "loans", "core"],
     });
 
-    const borrowersTable = makeNode("DataObject", "data", {
+    const borrowersTable = makeNode("DataObject", "application", {
       name: "borrowers",
       description: "PostgreSQL table storing borrower personal and financial information with encrypted PII",
       object_type: "table",
@@ -396,7 +396,7 @@ async function seed() {
       tags: ["table", "borrowers", "pii"],
     });
 
-    const creditReportsTable = makeNode("DataObject", "data", {
+    const creditReportsTable = makeNode("DataObject", "application", {
       name: "credit_reports",
       description: "PostgreSQL table storing credit bureau reports with scores and S3 references to raw data",
       object_type: "table",
@@ -408,7 +408,7 @@ async function seed() {
     });
 
     // DataObjects (other types)
-    const loanAppType = makeNode("DataObject", "data", {
+    const loanAppType = makeNode("DataObject", "application", {
       name: "LoanApplication Type",
       description: "TypeScript interface representing a loan application in the application service codebase",
       object_type: "type",
@@ -419,7 +419,7 @@ async function seed() {
       tags: ["type", "typescript", "interface"],
     });
 
-    const kafkaTopic = makeNode("DataObject", "data", {
+    const kafkaTopic = makeNode("DataObject", "application", {
       name: "loan.application.created",
       description: "Kafka topic for application created events, consumed by Eligibility, Notification, and Fraud services",
       object_type: "topic",
@@ -430,7 +430,7 @@ async function seed() {
       tags: ["topic", "kafka", "event"],
     });
 
-    const createAppPayload = makeNode("DataObject", "data", {
+    const createAppPayload = makeNode("DataObject", "application", {
       name: "CreateApplicationRequest",
       description: "API request payload schema for creating a new mortgage application",
       object_type: "payload",
@@ -442,7 +442,7 @@ async function seed() {
     });
 
     // DataFields (sample for loan_applications table)
-    const fieldId = makeNode("DataField", "data", {
+    const fieldId = makeNode("DataField", "application", {
       name: "id",
       description: "Primary key for loan applications",
       field_type: "UUID",
@@ -456,7 +456,7 @@ async function seed() {
       tags: ["pk", "uuid"],
     });
 
-    const fieldBorrowerId = makeNode("DataField", "data", {
+    const fieldBorrowerId = makeNode("DataField", "application", {
       name: "borrower_id",
       description: "Foreign key to borrowers table",
       field_type: "UUID",
@@ -470,7 +470,7 @@ async function seed() {
       tags: ["fk", "borrower"],
     });
 
-    const fieldLoanAmount = makeNode("DataField", "data", {
+    const fieldLoanAmount = makeNode("DataField", "application", {
       name: "loan_amount",
       description: "Requested mortgage loan amount in USD",
       field_type: "DECIMAL(12,2)",
@@ -484,7 +484,7 @@ async function seed() {
       tags: ["amount", "financial"],
     });
 
-    const fieldLoanType = makeNode("DataField", "data", {
+    const fieldLoanType = makeNode("DataField", "application", {
       name: "loan_type",
       description: "Mortgage loan program type",
       field_type: "VARCHAR(20)",
@@ -498,7 +498,7 @@ async function seed() {
       tags: ["enum", "loan-type"],
     });
 
-    const fieldStatus = makeNode("DataField", "data", {
+    const fieldStatus = makeNode("DataField", "application", {
       name: "status",
       description: "Current application state machine status",
       field_type: "VARCHAR(30)",
@@ -512,7 +512,7 @@ async function seed() {
       tags: ["status", "state-machine"],
     });
 
-    const fieldDtiRatio = makeNode("DataField", "data", {
+    const fieldDtiRatio = makeNode("DataField", "application", {
       name: "dti_ratio",
       description: "Calculated debt-to-income ratio as percentage",
       field_type: "DECIMAL(5,2)",
@@ -526,7 +526,7 @@ async function seed() {
       tags: ["ratio", "calculated"],
     });
 
-    const fieldLtvRatio = makeNode("DataField", "data", {
+    const fieldLtvRatio = makeNode("DataField", "application", {
       name: "ltv_ratio",
       description: "Calculated loan-to-value ratio as percentage",
       field_type: "DECIMAL(5,2)",

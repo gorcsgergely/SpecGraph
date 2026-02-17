@@ -162,9 +162,9 @@ const LAYER_MAP: Record<string, string> = {
   Application: "application",
   ApplicationComponent: "application",
   API: "application",
-  DataStore: "data",
-  DataObject: "data",
-  DataField: "data",
+  DataStore: "technology",
+  DataObject: "application",
+  DataField: "application",
   SpecDocument: "spec",
 };
 

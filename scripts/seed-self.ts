@@ -2157,10 +2157,10 @@ npm test -- --grep "copy-on-write"
 
     // ── Create all nodes ──
     console.log("Inserting nodes...");
-    // ── Physical Data Layer ──
-    console.log("Creating physical data layer...");
+    // ── Technology Layer ──
+    console.log("Creating technology layer...");
 
-    const neo4jDataStore = makeNode("DataStore", "data", {
+    const neo4jDataStore = makeNode("DataStore", "technology", {
       name: "SpecGraph Neo4j",
       description: "Neo4j 5 Community graph database storing all architecture knowledge graph data — nodes, relationships, and temporal versions",
       store_type: "database",
@@ -2171,7 +2171,7 @@ npm test -- --grep "copy-on-write"
       tags: ["neo4j", "graph-database", "primary"],
     });
 
-    const graphNodeLabel = makeNode("DataObject", "data", {
+    const graphNodeLabel = makeNode("DataObject", "application", {
       name: "Graph Node Labels",
       description: "Neo4j node labels representing 13 architecture artifact types — each label has unique ID constraint and valid_to/status/name indexes",
       object_type: "collection",
@@ -2182,7 +2182,7 @@ npm test -- --grep "copy-on-write"
       tags: ["labels", "nodes", "neo4j"],
     });
 
-    const graphRelTypes = makeNode("DataObject", "data", {
+    const graphRelTypes = makeNode("DataObject", "application", {
       name: "Relationship Types",
       description: "Neo4j relationship types — 11 directed edge types validated against ALLOWED_RELATIONSHIPS matrix",
       object_type: "collection",

@@ -45,12 +45,12 @@ const NODE_TYPE_GROUPS: { layer: string; label: string; types: NodeType[] }[] = 
   {
     layer: "application",
     label: "Application",
-    types: ["Application", "ApplicationComponent", "API"],
+    types: ["Application", "ApplicationComponent", "API", "DataObject", "DataField"],
   },
   {
-    layer: "data",
-    label: "Data",
-    types: ["DataStore", "DataObject", "DataField"],
+    layer: "technology",
+    label: "Technology",
+    types: ["DataStore"],
   },
   {
     layer: "spec",
